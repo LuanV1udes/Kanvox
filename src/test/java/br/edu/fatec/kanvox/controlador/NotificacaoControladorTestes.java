@@ -55,12 +55,20 @@ class NotificacaoControladorTestes {
 		return ((Number) JsonPath.read(resposta, "$.id")).longValue();
 	}
 
-	private void convidar(String tokenGestor, long projetoId, String email) throws Exception {
+	/** Convida e aceita em nome do convidado (o aceite gera notificacoes de convite, RF-01.4). */
+	private void convidarEAceitar(String tokenGestor, long projetoId, String email, String tokenConvidado) throws Exception {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/membros")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"" + email + "\",\"papel\":\"MEMBRO\"}"))
 				.andExpect(status().isCreated());
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andExpect(status().isOk());
 	}
 
 	@Test
@@ -70,7 +78,7 @@ class NotificacaoControladorTestes {
 		String tokenGestor = logar("gestor.atribui@teste.com");
 		String tokenMembro = logar("membro.atribui@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Atribuicao");
-		convidar(tokenGestor, projetoId, "membro.atribui@teste.com");
+		convidarEAceitar(tokenGestor, projetoId, "membro.atribui@teste.com", tokenMembro);
 
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
@@ -78,18 +86,17 @@ class NotificacaoControladorTestes {
 				.content("{\"titulo\":\"Tarefa delegada\",\"responsavel\":{\"id\":" + membroId + "}}"))
 				.andExpect(status().isCreated());
 
-		// o membro recebeu a notificacao (RF-06.3)
+		// o membro recebeu a notificacao de atribuicao (RF-06.3) — a mais recente da lista
 		mockMvc.perform(get("/api/notificacoes")
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].tipo").value("TAREFA_ATRIBUIDA"))
 				.andExpect(jsonPath("$[0].lida").value(false));
 
-		// o gestor nao recebeu nada (foi ele quem atribuiu)
+		// o gestor nao recebeu aviso de atribuicao (foi ele quem atribuiu)
 		mockMvc.perform(get("/api/notificacoes")
 				.header("Authorization", "Bearer " + tokenGestor))
-				.andExpect(jsonPath("$.length()").value(0));
+				.andExpect(jsonPath("$[?(@.tipo == 'TAREFA_ATRIBUIDA')]").isEmpty());
 	}
 
 	@Test
@@ -99,7 +106,7 @@ class NotificacaoControladorTestes {
 		String tokenGestor = logar("gestor.bloqueio@teste.com");
 		String tokenMembro = logar("membro.bloqueio@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Bloqueio");
-		convidar(tokenGestor, projetoId, "membro.bloqueio@teste.com");
+		convidarEAceitar(tokenGestor, projetoId, "membro.bloqueio@teste.com", tokenMembro);
 
 		// o gestor cria a tarefa atribuida ao membro (criacao e exclusiva do Gestor)
 		String resposta = mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
@@ -115,10 +122,9 @@ class NotificacaoControladorTestes {
 				.content("{\"status\":\"BLOQUEADO\"}"))
 				.andExpect(status().isOk());
 
-		// o gestor foi avisado do bloqueio (RF-06.1)
+		// o gestor foi avisado do bloqueio (RF-06.1) — a notificacao mais recente
 		mockMvc.perform(get("/api/notificacoes")
 				.header("Authorization", "Bearer " + tokenGestor))
-				.andExpect(jsonPath("$.length()").value(1))
 				.andExpect(jsonPath("$[0].tipo").value("TAREFA_BLOQUEADA"));
 	}
 
@@ -129,7 +135,7 @@ class NotificacaoControladorTestes {
 		String tokenGestor = logar("gestor.leitura@teste.com");
 		String tokenMembro = logar("membro.leitura@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Leitura");
-		convidar(tokenGestor, projetoId, "membro.leitura@teste.com");
+		convidarEAceitar(tokenGestor, projetoId, "membro.leitura@teste.com", tokenMembro);
 
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)

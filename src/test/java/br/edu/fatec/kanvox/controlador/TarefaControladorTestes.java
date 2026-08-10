@@ -55,12 +55,21 @@ class TarefaControladorTestes {
 		return ((Number) JsonPath.read(resposta, "$.id")).longValue();
 	}
 
-	private void convidar(String tokenGestor, long projetoId, String email, String papel) throws Exception {
+	/** Convida e ja aceita o convite em nome do convidado (RF-01.4). */
+	private void convidarEAceitar(String tokenGestor, long projetoId, String email, String papel,
+			String tokenConvidado) throws Exception {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/membros")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"" + email + "\",\"papel\":\"" + papel + "\"}"))
 				.andExpect(status().isCreated());
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andExpect(status().isOk());
 	}
 
 	private long criarTarefa(String token, long projetoId, String corpoJson) throws Exception {
@@ -78,8 +87,9 @@ class TarefaControladorTestes {
 		cadastrar("Gestor Kanban", "gestor.kanban@teste.com");
 		long membroId = cadastrar("Membro Kanban", "membro.kanban@teste.com");
 		String tokenGestor = logar("gestor.kanban@teste.com");
+		String tokenMembro = logar("membro.kanban@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Kanban");
-		convidar(tokenGestor, projetoId, "membro.kanban@teste.com", "MEMBRO");
+		convidarEAceitar(tokenGestor, projetoId, "membro.kanban@teste.com", "MEMBRO", tokenMembro);
 
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
@@ -104,7 +114,7 @@ class TarefaControladorTestes {
 		String tokenGestor = logar("gestor.auto@teste.com");
 		String tokenMembro = logar("membro.auto@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Criacao Restrita");
-		convidar(tokenGestor, projetoId, "membro.auto@teste.com", "MEMBRO");
+		convidarEAceitar(tokenGestor, projetoId, "membro.auto@teste.com", "MEMBRO", tokenMembro);
 
 		// criar tarefas e exclusivo do Gestor (RF-03.2)
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
@@ -122,7 +132,7 @@ class TarefaControladorTestes {
 		String tokenGestor = logar("gestor.obs@teste.com");
 		String tokenObservador = logar("observador.obs@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Observado");
-		convidar(tokenGestor, projetoId, "observador.obs@teste.com", "OBSERVADOR");
+		convidarEAceitar(tokenGestor, projetoId, "observador.obs@teste.com", "OBSERVADOR", tokenObservador);
 		long tarefaId = criarTarefa(tokenGestor, projetoId, "{\"titulo\":\"Tarefa visivel\"}");
 
 		// observador ve o quadro normalmente
@@ -151,7 +161,7 @@ class TarefaControladorTestes {
 		String tokenGestor = logar("gestor.dono@teste.com");
 		String tokenMembro = logar("membro.dono@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Dono da Tarefa");
-		convidar(tokenGestor, projetoId, "membro.dono@teste.com", "MEMBRO");
+		convidarEAceitar(tokenGestor, projetoId, "membro.dono@teste.com", "MEMBRO", tokenMembro);
 
 		// tarefa do gestor: membro nao pode editar nem mover
 		long tarefaDoGestor = criarTarefa(tokenGestor, projetoId,
@@ -193,7 +203,7 @@ class TarefaControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"COLUNA_INEXISTENTE\"}"))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.erro").value("Status invalido. Use A_FAZER, EM_ANDAMENTO, BLOQUEADO ou CONCLUIDO."));
+				.andExpect(jsonPath("$.erro").value("Status invalido. Use A_FAZER, EM_ANDAMENTO, BLOQUEADO, EM_REVISAO ou CONCLUIDO."));
 	}
 
 	@Test
@@ -203,7 +213,7 @@ class TarefaControladorTestes {
 		String tokenGestor = logar("gestor.exclui@teste.com");
 		String tokenMembro = logar("membro.exclui@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Exclusao");
-		convidar(tokenGestor, projetoId, "membro.exclui@teste.com", "MEMBRO");
+		convidarEAceitar(tokenGestor, projetoId, "membro.exclui@teste.com", "MEMBRO", tokenMembro);
 
 		// nem mesmo a propria tarefa o membro pode excluir (RF-03.2)
 		long tarefaDoMembro = criarTarefa(tokenGestor, projetoId,
@@ -233,6 +243,75 @@ class TarefaControladorTestes {
 				.content("{\"titulo\":\"Tarefa orfã\",\"responsavel\":{\"id\":" + usuarioDeForaId + "}}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.erro").value("O responsavel precisa ser membro ativo do projeto."));
+	}
+
+	@Test
+	void membroEntregaEmRevisaoESomenteGestorConclui() throws Exception {
+		cadastrar("Gestor Revisa", "gestor.revisa@teste.com");
+		long membroId = cadastrar("Membro Revisa", "membro.revisa@teste.com");
+		String tokenGestor = logar("gestor.revisa@teste.com");
+		String tokenMembro = logar("membro.revisa@teste.com");
+		long projetoId = criarProjeto(tokenGestor, "Projeto Revisao");
+		convidarEAceitar(tokenGestor, projetoId, "membro.revisa@teste.com", "MEMBRO", tokenMembro);
+		long tarefaId = criarTarefa(tokenGestor, projetoId,
+				"{\"titulo\":\"Tarefa para entregar\",\"responsavel\":{\"id\":" + membroId + "}}");
+
+		// o membro entrega: move a propria tarefa para Em Revisao (RF-03.7)
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"EM_REVISAO\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("EM_REVISAO"));
+
+		// mas nao pode concluir — isso e decisao do Gestor
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"CONCLUIDO\"}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.erro").value(
+						"Somente o Gestor conclui tarefas. Mova para 'Em Revisao' e aguarde a avaliacao."));
+
+		// o gestor avalia e conclui
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"CONCLUIDO\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("CONCLUIDO"));
+
+		// depois de concluida, o membro nao pode reabrir
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"EM_ANDAMENTO\"}"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void tarefaTemPrioridadeComPadraoMedia() throws Exception {
+		cadastrar("Gestor Prioriza", "gestor.prioriza@teste.com");
+		String token = logar("gestor.prioriza@teste.com");
+		long projetoId = criarProjeto(token, "Projeto Prioridades");
+
+		// sem informar prioridade, nasce MEDIA
+		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tarefa comum\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.prioridade").value("MEDIA"));
+
+		// prioridade informada na criacao e alterada na edicao
+		long tarefaId = criarTarefa(token, projetoId,
+				"{\"titulo\":\"Tarefa urgente\",\"prioridade\":\"ALTA\"}");
+		mockMvc.perform(put("/api/tarefas/" + tarefaId)
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tarefa urgente\",\"prioridade\":\"BAIXA\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.prioridade").value("BAIXA"));
 	}
 
 	@Test

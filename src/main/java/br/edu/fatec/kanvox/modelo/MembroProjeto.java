@@ -16,8 +16,9 @@ import jakarta.persistence.UniqueConstraint;
 
 /**
  * Vinculo entre um usuario e um projeto, com o papel exercido nele (RF-01.2).
- * Quando o membro sai ou e removido (RF-01.5), o vinculo e marcado como
- * inativo — nunca excluido — para preservar o historico do projeto.
+ * O convite nasce PENDENTE e o convidado decide aceitar ou recusar (RF-01.4).
+ * Quando o membro recusa, sai ou e removido (RF-01.5), o vinculo e marcado
+ * como INATIVO — nunca excluido — para preservar o historico do projeto.
  */
 @Entity
 @Table(name = "membro_projeto", uniqueConstraints = @UniqueConstraint(columnNames = { "projeto_id", "usuario_id" }))
@@ -42,8 +43,9 @@ public class MembroProjeto {
 	@Column(nullable = false)
 	private PapelProjeto papelNoProjeto;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private boolean ativo = true;
+	private SituacaoNoProjeto situacao = SituacaoNoProjeto.PENDENTE;
 
 	public Long getId() {
 		return id;
@@ -77,12 +79,12 @@ public class MembroProjeto {
 		this.papelNoProjeto = papelNoProjeto;
 	}
 
-	public boolean isAtivo() {
-		return ativo;
+	public SituacaoNoProjeto getSituacao() {
+		return situacao;
 	}
 
-	public void setAtivo(boolean ativo) {
-		this.ativo = ativo;
+	public void setSituacao(SituacaoNoProjeto situacao) {
+		this.situacao = situacao;
 	}
 
 }

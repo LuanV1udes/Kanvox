@@ -33,6 +33,8 @@ Abra **http://localhost:8080** no navegador — a tela de login/cadastro aparece
 
 Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalado**.
 
+**Nota sobre mudanças em enums:** o `ddl-auto=update` do Hibernate cria colunas novas automaticamente, mas **não atualiza** a restrição `CHECK` de uma coluna quando um enum Java ganha um valor novo (ex.: ao adicionar `EM_REVISAO` em `StatusTarefa`). Se isso acontecer com um banco que já existe, o sintoma é um erro 500 do tipo `violates check constraint`. Solução: `ALTER TABLE <tabela> DROP CONSTRAINT <tabela>_<coluna>_check;` no psql/pgAdmin — o Hibernate recria a constraint certa na próxima inicialização.
+
 ## Endpoints já implementados
 
 ### Autenticação (público)
@@ -51,22 +53,40 @@ Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalad
 | GET | `/api/projetos/{id}` | Visão geral: dados, membros, progresso, tarefas em aberto |
 | PUT | `/api/projetos/{id}` | Edita nome/descrição (somente Gestor) |
 | PUT | `/api/projetos/{id}/encerrar` | Encerra o projeto (somente Gestor) |
-| GET | `/api/projetos/{id}/membros` | Lista os membros ativos |
-| POST | `/api/projetos/{id}/membros` | Convida usuário já cadastrado — corpo: `{ "email", "papel": "MEMBRO" ou "OBSERVADOR" }` (somente Gestor) |
-| DELETE | `/api/projetos/{id}/membros/{usuarioId}` | Remove membro (somente Gestor) |
+| GET | `/api/projetos/{id}/membros` | Lista os membros ativos e os convites pendentes |
+| POST | `/api/projetos/{id}/membros` | Convida usuário já cadastrado — corpo: `{ "email", "papel": "MEMBRO" ou "OBSERVADOR" }` (somente Gestor). O convite nasce **pendente**: só dá acesso depois que o convidado aceita |
+| DELETE | `/api/projetos/{id}/membros/{usuarioId}` | Remove membro ou cancela convite pendente (somente Gestor) |
 | POST | `/api/projetos/{id}/sair` | O usuário logado sai do projeto (Gestor não pode sair) |
+
+### Convites recebidos (exigem `Authorization: Bearer <token>`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/convites` | Lista os convites pendentes do usuário logado |
+| POST | `/api/convites/{id}/aceitar` | Aceita o convite — o usuário passa a participar do projeto |
+| POST | `/api/convites/{id}/recusar` | Recusa o convite |
 
 ### Quadro Kanban (exigem `Authorization: Bearer <token>`)
 
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/projetos/{id}/tarefas` | Lista as tarefas do projeto (endpoint do polling do quadro) |
-| POST | `/api/projetos/{id}/tarefas` | Cria tarefa — corpo: `{ "titulo", "descricao", "prazo": "2026-08-01", "responsavel": { "id": 2 } }` (prazo e responsável opcionais; Membro sempre cria para si) |
-| PUT | `/api/tarefas/{id}` | Edita título, descrição, prazo e responsável (reatribuir é só Gestor) |
-| PUT | `/api/tarefas/{id}/status` | Move de coluna — corpo: `{ "status": "A_FAZER" \| "EM_ANDAMENTO" \| "BLOQUEADO" \| "CONCLUIDO" }` |
+| POST | `/api/projetos/{id}/tarefas` | Cria tarefa (somente Gestor) — corpo: `{ "titulo", "descricao", "prazo": "2026-08-01", "prioridade": "BAIXA"\|"MEDIA"\|"ALTA", "responsavel": { "id": 2 } }` (prazo, prioridade e responsável opcionais) |
+| PUT | `/api/tarefas/{id}` | Edita título, descrição, prazo, prioridade e responsável (reatribuir é só Gestor) |
+| PUT | `/api/tarefas/{id}/status` | Move de coluna — corpo: `{ "status": "A_FAZER" \| "EM_ANDAMENTO" \| "BLOQUEADO" \| "EM_REVISAO" \| "CONCLUIDO" }`. Concluir ou reabrir uma tarefa é exclusivo do Gestor — o Membro entrega movendo para "Em Revisão" |
 | DELETE | `/api/tarefas/{id}` | Exclui tarefa (somente Gestor) |
 
-**Permissões no Kanban:** somente o Gestor cria e exclui tarefas; Membro edita/move apenas as tarefas atribuídas a ele; Observador só visualiza. Projeto encerrado fica somente leitura.
+**Permissões no Kanban:** somente o Gestor cria e exclui tarefas, e só ele conclui ou reabre; Membro edita/move apenas as tarefas atribuídas a ele (até "Em Revisão"); Observador só visualiza. Projeto encerrado fica somente leitura.
+
+### Comentários e anexos na tarefa — a devolutiva (exigem `Authorization: Bearer <token>`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET / POST | `/api/tarefas/{id}/comentarios` | Lista ou escreve um comentário — corpo: `{ "texto" }` (Gestor e Membro; Observador só lê) |
+| DELETE | `/api/comentarios/{id}` | Exclui um comentário (autor ou Gestor) |
+| GET / POST | `/api/tarefas/{id}/anexos` | Lista ou envia um anexo (`multipart/form-data`, campo `arquivo`, limite 10MB) — Gestor em qualquer tarefa, Membro só nas atribuídas a ele |
+| GET | `/api/anexos/{id}/download` | Baixa o arquivo |
+| DELETE | `/api/anexos/{id}` | Exclui um anexo (quem enviou ou Gestor) |
 
 ### Notificações (exigem `Authorization: Bearer <token>`)
 
@@ -76,7 +96,7 @@ Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalad
 | PUT | `/api/notificacoes/{id}/lida` | Marca uma notificação como lida |
 | PUT | `/api/notificacoes/lidas` | Marca todas como lidas |
 
-**Quando as notificações são geradas:** tarefa atribuída a você por outra pessoa (na criação ou reatribuição); tarefa do seu projeto marcada como Bloqueado (avisa o Gestor); tarefa com prazo vencido (avisa o Gestor — verificada por uma rotina automática a cada 30 minutos).
+**Quando as notificações são geradas:** tarefa atribuída a você por outra pessoa; tarefa do seu projeto marcada como Bloqueado ou movida para Em Revisão (avisa o Gestor); tarefa com prazo vencido (avisa o Gestor — rotina automática a cada 30 minutos); novo comentário numa tarefa (avisa o Gestor e o responsável, exceto quem comentou); convite recebido, e convite aceito/recusado (avisa o Gestor).
 
 ### Relatórios e transcrição de áudio (exigem `Authorization: Bearer <token>`, somente Gestor gera/transcreve)
 

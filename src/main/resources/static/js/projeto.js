@@ -27,8 +27,11 @@ const COLUNAS = [
 	{ status: 'A_FAZER', titulo: 'A Fazer' },
 	{ status: 'EM_ANDAMENTO', titulo: 'Em Andamento' },
 	{ status: 'BLOQUEADO', titulo: 'Bloqueado' },
+	{ status: 'EM_REVISAO', titulo: 'Em Revisão' },
 	{ status: 'CONCLUIDO', titulo: 'Concluído' }
 ];
+
+const ROTULOS_DE_PRIORIDADE = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta' };
 
 let projeto = null;
 let membros = [];
@@ -136,6 +139,8 @@ function renderizarQuadro() {
 				animation: 150,
 				filter: '.nao-arrastavel', // membro nao arrasta tarefa dos outros
 				onStart: () => { arrastando = true; },
+				// concluir (ou reabrir) uma tarefa e decisao exclusiva do Gestor (RF-03.7)
+				onMove: (evento) => souGestor() || evento.to.dataset.status !== 'CONCLUIDO',
 				onEnd: aoSoltarCartao
 			});
 		});
@@ -143,13 +148,14 @@ function renderizarQuadro() {
 }
 
 function montarCartaoDeTarefa(tarefa) {
-	// membro so pode mover as proprias tarefas (RF-03.3)
+	// membro so pode mover as proprias tarefas, e nao pode tirar uma tarefa
+	// de Concluido — isso e decisao exclusiva do Gestor (RF-03.3 / RF-03.7)
 	const minhaTarefa = tarefa.responsavel && tarefa.responsavel.id === usuario.id;
-	const arrastavel = souGestor() || minhaTarefa;
+	const arrastavel = souGestor() || (minhaTarefa && tarefa.status !== 'CONCLUIDO');
 	const prazoVencido = tarefa.prazo && tarefa.status !== 'CONCLUIDO'
 		&& tarefa.prazo < new Date().toISOString().slice(0, 10);
 	return `
-		<li class="cartao-tarefa ${arrastavel ? '' : 'nao-arrastavel'}" data-id="${tarefa.id}">
+		<li class="cartao-tarefa ${arrastavel ? '' : 'nao-arrastavel'}" data-id="${tarefa.id}" data-prioridade="${tarefa.prioridade}">
 			<div class="titulo-da-tarefa">${escaparHtml(tarefa.titulo)}</div>
 			<div class="detalhes-da-tarefa">
 				<span>${tarefa.responsavel ? escaparHtml(tarefa.responsavel.nome) : 'Sem responsável'}</span>
@@ -189,8 +195,9 @@ const dialogoTarefa = document.getElementById('dialogo-tarefa');
 
 function preencherSelectDeResponsaveis(selecionadoId) {
 	const select = document.getElementById('tarefa-responsavel');
+	// convites pendentes (RF-01.4) nao podem ser responsaveis: so entram no quadro apos aceitar
 	const opcoes = membros
-		.filter(membro => membro.papelNoProjeto !== 'OBSERVADOR')
+		.filter(membro => membro.papelNoProjeto !== 'OBSERVADOR' && membro.situacao === 'ATIVO')
 		.map(membro => `<option value="${membro.usuario.id}" ${membro.usuario.id === selecionadoId ? 'selected' : ''}>
 			${escaparHtml(membro.usuario.nome)}</option>`);
 	select.innerHTML = '<option value="">Sem responsável</option>' + opcoes.join('');
@@ -203,6 +210,7 @@ function abrirDialogoDeTarefa(tarefa) {
 	document.getElementById('tarefa-titulo').value = criando ? '' : tarefa.titulo;
 	document.getElementById('tarefa-descricao').value = criando ? '' : (tarefa.descricao || '');
 	document.getElementById('tarefa-prazo').value = criando ? '' : (tarefa.prazo || '');
+	document.getElementById('tarefa-prioridade').value = criando ? 'MEDIA' : tarefa.prioridade;
 
 	// o select de responsavel so aparece para o Gestor (membro cria para si, RF-03.3)
 	document.getElementById('rotulo-responsavel').hidden = !souGestor();
@@ -213,11 +221,20 @@ function abrirDialogoDeTarefa(tarefa) {
 	// permissao de edicao: gestor edita tudo; membro so as proprias tarefas
 	const minhaTarefa = tarefa && tarefa.responsavel && tarefa.responsavel.id === usuario.id;
 	const podeEditar = podeEscrever() && (souGestor() || minhaTarefa);
-	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-responsavel'].forEach(id => {
+	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-responsavel', 'tarefa-prioridade'].forEach(id => {
 		document.getElementById(id).disabled = !podeEditar;
 	});
 	document.getElementById('botao-salvar-tarefa').hidden = !podeEditar;
 	document.getElementById('botao-excluir-tarefa').hidden = !(souGestor() && !criando && projeto.status === 'ATIVO');
+
+	// devolutiva (RF-07): comentarios e anexos so existem em tarefas ja criadas
+	document.getElementById('secao-colaboracao').hidden = criando;
+	if (!criando) {
+		carregarComentarios(tarefa.id);
+		carregarAnexos(tarefa.id);
+		document.getElementById('linha-de-anexo').hidden = !podeEditar;
+		document.getElementById('linha-de-comentario').hidden = !podeEscrever();
+	}
 
 	dialogoTarefa.showModal();
 }
@@ -230,7 +247,8 @@ document.getElementById('formulario-tarefa').addEventListener('submit', async (e
 	const corpo = {
 		titulo: document.getElementById('tarefa-titulo').value,
 		descricao: document.getElementById('tarefa-descricao').value,
-		prazo: document.getElementById('tarefa-prazo').value || null
+		prazo: document.getElementById('tarefa-prazo').value || null,
+		prioridade: document.getElementById('tarefa-prioridade').value
 	};
 	if (souGestor()) {
 		const responsavelId = document.getElementById('tarefa-responsavel').value;
@@ -266,22 +284,176 @@ document.getElementById('botao-excluir-tarefa').addEventListener('click', async 
 	}
 });
 
+/* ---------- comentarios e anexos na tarefa: a devolutiva (RF-07) ---------- */
+
+async function carregarComentarios(tarefaId) {
+	try {
+		const comentarios = await chamarApi('/tarefas/' + tarefaId + '/comentarios');
+		const lista = document.getElementById('lista-de-comentarios');
+		if (comentarios.length === 0) {
+			lista.innerHTML = '<p class="aviso-vazio-secao">Nenhum comentário ainda.</p>';
+			return;
+		}
+		lista.innerHTML = comentarios.map(comentario => {
+			const podeExcluir = comentario.autor.id === usuario.id || souGestor();
+			return `
+				<li class="item-comentario" data-id="${comentario.id}">
+					<div class="cabecalho-do-comentario">
+						<span class="autor-do-comentario">${escaparHtml(comentario.autor.nome)}</span>
+						<span class="quando">${formatarDataEHora(comentario.criadoEm)}</span>
+						${podeExcluir ? '<button type="button" class="botao-texto botao-excluir-comentario">Excluir</button>' : ''}
+					</div>
+					${escaparHtml(comentario.texto)}
+				</li>
+			`;
+		}).join('');
+
+		lista.querySelectorAll('.botao-excluir-comentario').forEach(botao => {
+			botao.addEventListener('click', async () => {
+				try {
+					await chamarApi('/comentarios/' + botao.closest('.item-comentario').dataset.id, { method: 'DELETE' });
+					await carregarComentarios(tarefaId);
+				} catch (erro) {
+					exibirMensagem(erro.message, 'erro');
+				}
+			});
+		});
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
+
+document.getElementById('botao-comentar').addEventListener('click', async () => {
+	const campo = document.getElementById('novo-comentario');
+	if (!campo.value.trim()) {
+		return;
+	}
+	try {
+		await chamarApi('/tarefas/' + tarefaEmEdicao.id + '/comentarios', {
+			method: 'POST',
+			body: { texto: campo.value }
+		});
+		campo.value = '';
+		await carregarComentarios(tarefaEmEdicao.id);
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+});
+
+function formatarTamanhoDoArquivo(bytes) {
+	if (bytes < 1024) {
+		return bytes + ' B';
+	}
+	if (bytes < 1024 * 1024) {
+		return (bytes / 1024).toFixed(0) + ' KB';
+	}
+	return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+async function carregarAnexos(tarefaId) {
+	try {
+		const anexos = await chamarApi('/tarefas/' + tarefaId + '/anexos');
+		const lista = document.getElementById('lista-de-anexos');
+		if (anexos.length === 0) {
+			lista.innerHTML = '<p class="aviso-vazio-secao">Nenhum anexo ainda.</p>';
+			return;
+		}
+		lista.innerHTML = anexos.map(anexo => {
+			const podeExcluir = anexo.enviadoPor.id === usuario.id || souGestor();
+			return `
+				<li class="item-anexo" data-id="${anexo.id}">
+					<span class="nome-do-anexo" title="${escaparHtml(anexo.nome)}">${escaparHtml(anexo.nome)}</span>
+					<span class="tamanho-do-anexo">${formatarTamanhoDoArquivo(anexo.tamanho)}</span>
+					<button type="button" class="botao-texto botao-baixar-anexo">Baixar</button>
+					${podeExcluir ? '<button type="button" class="botao-texto botao-excluir-anexo">Excluir</button>' : ''}
+				</li>
+			`;
+		}).join('');
+
+		lista.querySelectorAll('.botao-baixar-anexo').forEach(botao => {
+			botao.addEventListener('click', () => baixarAnexo(botao.closest('.item-anexo').dataset.id));
+		});
+		lista.querySelectorAll('.botao-excluir-anexo').forEach(botao => {
+			botao.addEventListener('click', async () => {
+				try {
+					await chamarApi('/anexos/' + botao.closest('.item-anexo').dataset.id, { method: 'DELETE' });
+					await carregarAnexos(tarefaId);
+				} catch (erro) {
+					exibirMensagem(erro.message, 'erro');
+				}
+			});
+		});
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
+
+/** Baixa o anexo via fetch direto (com o token), pois a resposta e binaria, nao JSON. */
+async function baixarAnexo(anexoId) {
+	try {
+		const resposta = await fetch('/api/anexos/' + anexoId + '/download', {
+			headers: { Authorization: 'Bearer ' + localStorage.getItem('kanvox_token') }
+		});
+		if (!resposta.ok) {
+			throw new Error('Não foi possível baixar o anexo.');
+		}
+		const disposicao = resposta.headers.get('Content-Disposition') || '';
+		const nomeDoArquivo = (disposicao.match(/filename="(.+)"/) || [])[1] || 'arquivo';
+		const url = URL.createObjectURL(await resposta.blob());
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = nomeDoArquivo;
+		link.click();
+		URL.revokeObjectURL(url);
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
+
+document.getElementById('botao-enviar-anexo').addEventListener('click', async () => {
+	const input = document.getElementById('input-anexo');
+	if (!input.files || input.files.length === 0) {
+		exibirMensagem('Escolha um arquivo para anexar.', 'erro');
+		return;
+	}
+	const arquivo = input.files[0];
+	if (arquivo.size > 10 * 1024 * 1024) {
+		exibirMensagem('O arquivo excede o limite de 10MB.', 'erro');
+		return;
+	}
+	try {
+		const formulario = new FormData();
+		formulario.append('arquivo', arquivo);
+		await chamarApi('/tarefas/' + tarefaEmEdicao.id + '/anexos', { method: 'POST', body: formulario });
+		input.value = '';
+		exibirMensagem('Anexo enviado!', 'sucesso');
+		await carregarAnexos(tarefaEmEdicao.id);
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+});
+
 /* ---------- membros (RF-01.4 / RF-01.5) ---------- */
 
 function renderizarMembros() {
 	const rotulos = { GESTOR: 'Gestor', MEMBRO: 'Membro', OBSERVADOR: 'Observador' };
 	const lista = document.getElementById('lista-de-membros');
-	lista.innerHTML = membros.map(membro => `
-		<li>
-			<strong>${escaparHtml(membro.usuario.nome)}</strong>
-			<span class="texto-suave">${escaparHtml(membro.usuario.email)}</span>
-			<span class="selo selo-${membro.papelNoProjeto.toLowerCase()}">${rotulos[membro.papelNoProjeto]}</span>
-			<div class="espacador"></div>
-			${souGestor() && membro.papelNoProjeto !== 'GESTOR' && projeto.status === 'ATIVO'
-				? `<button type="button" class="botao-perigo botao-compacto botao-remover" data-usuario="${membro.usuario.id}">Remover</button>`
-				: ''}
-		</li>
-	`).join('');
+	lista.innerHTML = membros.map(membro => {
+		const pendente = membro.situacao === 'PENDENTE';
+		return `
+			<li>
+				<strong>${escaparHtml(membro.usuario.nome)}</strong>
+				<span class="texto-suave">${escaparHtml(membro.usuario.email)}</span>
+				<span class="selo selo-${membro.papelNoProjeto.toLowerCase()}">${rotulos[membro.papelNoProjeto]}</span>
+				${pendente ? '<span class="selo selo-encerrado">Convite pendente</span>' : ''}
+				<div class="espacador"></div>
+				${souGestor() && membro.papelNoProjeto !== 'GESTOR' && projeto.status === 'ATIVO'
+					? `<button type="button" class="botao-perigo botao-compacto botao-remover" data-usuario="${membro.usuario.id}">
+						${pendente ? 'Cancelar convite' : 'Remover'}</button>`
+					: ''}
+			</li>
+		`;
+	}).join('');
 
 	lista.querySelectorAll('.botao-remover').forEach(botao => {
 		botao.addEventListener('click', async () => {

@@ -13,14 +13,26 @@ import br.edu.fatec.kanvox.modelo.MembroProjeto;
 public interface MembroProjetoRepositorio extends JpaRepository<MembroProjeto, Long> {
 
 	/** Vinculo ativo de um usuario com um projeto — usado nas validacoes de RBAC. */
-	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId and m.usuario.id = :usuarioId and m.ativo = true")
+	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId and m.usuario.id = :usuarioId"
+			+ " and m.situacao = br.edu.fatec.kanvox.modelo.SituacaoNoProjeto.ATIVO")
 	Optional<MembroProjeto> buscarVinculoAtivo(@Param("projetoId") Long projetoId, @Param("usuarioId") Long usuarioId);
 
 	/** Todos os membros ativos de um projeto (RF-02.3). */
-	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId and m.ativo = true")
+	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId"
+			+ " and m.situacao = br.edu.fatec.kanvox.modelo.SituacaoNoProjeto.ATIVO")
 	List<MembroProjeto> buscarMembrosAtivos(@Param("projetoId") Long projetoId);
 
-	/** Qualquer vinculo (ativo ou nao) de um usuario com um projeto — usado para preservar o historico (RF-01.5). */
+	/** Membros ativos e convites pendentes de um projeto — exibidos na tela de membros. */
+	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId"
+			+ " and m.situacao <> br.edu.fatec.kanvox.modelo.SituacaoNoProjeto.INATIVO")
+	List<MembroProjeto> buscarMembrosEConvites(@Param("projetoId") Long projetoId);
+
+	/** Convites pendentes recebidos por um usuario (RF-01.4). */
+	@Query("select m from MembroProjeto m where m.usuario.id = :usuarioId"
+			+ " and m.situacao = br.edu.fatec.kanvox.modelo.SituacaoNoProjeto.PENDENTE")
+	List<MembroProjeto> buscarConvitesPendentes(@Param("usuarioId") Long usuarioId);
+
+	/** Qualquer vinculo (em qualquer situacao) de um usuario com um projeto — preserva o historico (RF-01.5). */
 	@Query("select m from MembroProjeto m where m.projeto.id = :projetoId and m.usuario.id = :usuarioId")
 	Optional<MembroProjeto> buscarVinculo(@Param("projetoId") Long projetoId, @Param("usuarioId") Long usuarioId);
 

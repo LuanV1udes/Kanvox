@@ -47,6 +47,18 @@ class ProjetoControladorTestes {
 		return ((Number) JsonPath.read(resposta, "$.id")).longValue();
 	}
 
+	/** Aceita o primeiro convite pendente do usuario e devolve o id do vinculo. */
+	private long aceitarPrimeiroConvite(String tokenConvidado) throws Exception {
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenConvidado))
+				.andExpect(status().isOk());
+		return conviteId;
+	}
+
 	@Test
 	void criarProjetoTornaOCriadorGestor() throws Exception {
 		String token = cadastrarELogar("Gestora", "gestora@teste.com");
@@ -75,7 +87,7 @@ class ProjetoControladorTestes {
 	}
 
 	@Test
-	void convidarMembroCadastradoFunciona() throws Exception {
+	void conviteFicaPendenteAteOConvidadoAceitar() throws Exception {
 		String tokenGestor = cadastrarELogar("Gestor Convite", "gestor.convite@teste.com");
 		String tokenMembro = cadastrarELogar("Membro Convidado", "membro.convite@teste.com");
 		long projetoId = criarProjeto(tokenGestor, "Projeto Convite");
@@ -85,12 +97,58 @@ class ProjetoControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"membro.convite@teste.com\",\"papel\":\"MEMBRO\"}"))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.papelNoProjeto").value("MEMBRO"));
+				.andExpect(jsonPath("$.papelNoProjeto").value("MEMBRO"))
+				.andExpect(jsonPath("$.situacao").value("PENDENTE"));
 
-		// o convidado agora consegue ver o projeto
+		// enquanto o convite esta pendente, o convidado NAO acessa o projeto
+		mockMvc.perform(get("/api/projetos/" + projetoId)
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isForbidden());
+
+		// o convite aparece na lista dele, com o nome do projeto e de quem convidou
+		mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].projeto.nome").value("Projeto Convite"))
+				.andExpect(jsonPath("$[0].convidadoPor").value("Gestor Convite"));
+
+		// depois de aceitar, o acesso e liberado
+		aceitarPrimeiroConvite(tokenMembro);
 		mockMvc.perform(get("/api/projetos/" + projetoId)
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isOk());
+	}
+
+	@Test
+	void conviteRecusadoNaoDaAcessoAoProjeto() throws Exception {
+		String tokenGestor = cadastrarELogar("Gestor Recusa", "gestor.recusa@teste.com");
+		String tokenMembro = cadastrarELogar("Membro Recusa", "membro.recusa@teste.com");
+		long projetoId = criarProjeto(tokenGestor, "Projeto Recusado");
+
+		mockMvc.perform(post("/api/projetos/" + projetoId + "/membros")
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"membro.recusa@teste.com\",\"papel\":\"MEMBRO\"}"))
+				.andExpect(status().isCreated());
+
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+
+		mockMvc.perform(post("/api/convites/" + conviteId + "/recusar")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isOk());
+
+		// sem acesso, e o convite nao pode ser respondido de novo
+		mockMvc.perform(get("/api/projetos/" + projetoId)
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Este convite ja foi respondido."));
 	}
 
 	@Test
@@ -118,6 +176,7 @@ class ProjetoControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"membro.rbac@teste.com\",\"papel\":\"MEMBRO\"}"))
 				.andExpect(status().isCreated());
+		aceitarPrimeiroConvite(tokenMembro);
 
 		// membro tenta editar o projeto: 403
 		mockMvc.perform(put("/api/projetos/" + projetoId)
@@ -154,6 +213,7 @@ class ProjetoControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"membro.saida@teste.com\",\"papel\":\"MEMBRO\"}"))
 				.andExpect(status().isCreated());
+		aceitarPrimeiroConvite(tokenMembro);
 
 		// membro sai voluntariamente e perde o acesso
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/sair")
@@ -199,19 +259,22 @@ class ProjetoControladorTestes {
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON).content(corpoConvite))
 				.andExpect(status().isCreated());
+		aceitarPrimeiroConvite(tokenMembro);
 
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/sair")
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isOk());
 
-		// convite de novo: o vinculo antigo e reativado, desta vez como observador
+		// convite de novo: o vinculo antigo vira um convite pendente, desta vez como observador
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/membros")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"membro.volta@teste.com\",\"papel\":\"OBSERVADOR\"}"))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.papelNoProjeto").value("OBSERVADOR"));
+				.andExpect(jsonPath("$.papelNoProjeto").value("OBSERVADOR"))
+				.andExpect(jsonPath("$.situacao").value("PENDENTE"));
 
+		aceitarPrimeiroConvite(tokenMembro);
 		mockMvc.perform(get("/api/projetos/" + projetoId)
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isOk());

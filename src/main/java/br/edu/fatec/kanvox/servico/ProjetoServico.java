@@ -10,9 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 import br.edu.fatec.kanvox.modelo.MembroProjeto;
 import br.edu.fatec.kanvox.modelo.PapelProjeto;
 import br.edu.fatec.kanvox.modelo.Projeto;
+import br.edu.fatec.kanvox.modelo.SituacaoNoProjeto;
 import br.edu.fatec.kanvox.modelo.StatusProjeto;
 import br.edu.fatec.kanvox.modelo.StatusTarefa;
 import br.edu.fatec.kanvox.modelo.Tarefa;
+import br.edu.fatec.kanvox.modelo.TipoNotificacao;
 import br.edu.fatec.kanvox.modelo.Usuario;
 import br.edu.fatec.kanvox.repositorio.MembroProjetoRepositorio;
 import br.edu.fatec.kanvox.repositorio.ProjetoRepositorio;
@@ -32,15 +34,18 @@ public class ProjetoServico {
 	private final MembroProjetoRepositorio membroProjetoRepositorio;
 	private final UsuarioRepositorio usuarioRepositorio;
 	private final TarefaRepositorio tarefaRepositorio;
+	private final NotificacaoServico notificacaoServico;
 
 	public ProjetoServico(ProjetoRepositorio projetoRepositorio,
 			MembroProjetoRepositorio membroProjetoRepositorio,
 			UsuarioRepositorio usuarioRepositorio,
-			TarefaRepositorio tarefaRepositorio) {
+			TarefaRepositorio tarefaRepositorio,
+			NotificacaoServico notificacaoServico) {
 		this.projetoRepositorio = projetoRepositorio;
 		this.membroProjetoRepositorio = membroProjetoRepositorio;
 		this.usuarioRepositorio = usuarioRepositorio;
 		this.tarefaRepositorio = tarefaRepositorio;
+		this.notificacaoServico = notificacaoServico;
 	}
 
 	/** Cria um projeto; quem cria torna-se automaticamente o Gestor dele (RF-02.1). */
@@ -60,6 +65,8 @@ public class ProjetoServico {
 		vinculoDoGestor.setProjeto(novoProjeto);
 		vinculoDoGestor.setUsuario(usuarioLogado);
 		vinculoDoGestor.setPapelNoProjeto(PapelProjeto.GESTOR);
+		// quem cria o projeto entra direto, sem passar por convite
+		vinculoDoGestor.setSituacao(SituacaoNoProjeto.ATIVO);
 		membroProjetoRepositorio.save(vinculoDoGestor);
 
 		return novoProjeto;
@@ -84,7 +91,9 @@ public class ProjetoServico {
 
 		Map<String, Object> visaoGeral = new HashMap<>();
 		visaoGeral.put("projeto", projeto);
-		visaoGeral.put("membros", membroProjetoRepositorio.buscarMembrosAtivos(projetoId));
+		// inclui convites pendentes (RF-01.4) — quem monta o select de responsavel
+		// no frontend filtra apenas os membros com situacao ATIVO
+		visaoGeral.put("membros", membroProjetoRepositorio.buscarMembrosEConvites(projetoId));
 		visaoGeral.put("totalTarefas", totalDeTarefas);
 		visaoGeral.put("tarefasConcluidas", tarefasConcluidas);
 		visaoGeral.put("tarefasEmAberto", totalDeTarefas - tarefasConcluidas);
@@ -118,8 +127,9 @@ public class ProjetoServico {
 
 	/**
 	 * Convida um usuario ja cadastrado para o projeto — somente o Gestor (RF-01.4).
-	 * O papel do convidado pode ser MEMBRO ou OBSERVADOR (o Gestor e unico: quem criou).
-	 * Se a pessoa ja participou e saiu, o vinculo antigo e reativado (RF-01.5).
+	 * O convite nasce PENDENTE: o convidado recebe uma notificacao e decide
+	 * aceitar ou recusar. O papel pode ser MEMBRO ou OBSERVADOR.
+	 * Se a pessoa ja participou e saiu, um novo convite reaproveita o vinculo.
 	 */
 	public MembroProjeto convidarMembro(Usuario usuarioLogado, Long projetoId, String email, String papel) {
 		Projeto projeto = validarGestor(projetoId, usuarioLogado).getProjeto();
@@ -136,35 +146,94 @@ public class ProjetoServico {
 			throw new RegraDeNegocioExcecao("O papel de Gestor pertence a quem criou o projeto. Convide como MEMBRO ou OBSERVADOR.");
 		}
 
-		MembroProjeto vinculoExistente = membroProjetoRepositorio
+		MembroProjeto vinculo = membroProjetoRepositorio
 				.buscarVinculo(projetoId, convidado.getId()).orElse(null);
-		if (vinculoExistente != null && vinculoExistente.isAtivo()) {
+		if (vinculo != null && vinculo.getSituacao() == SituacaoNoProjeto.ATIVO) {
 			throw new RegraDeNegocioExcecao("Este usuario ja e membro do projeto.");
 		}
-		if (vinculoExistente != null) {
-			// ja participou e saiu: reativa o vinculo, preservando o historico
-			vinculoExistente.setAtivo(true);
-			vinculoExistente.setPapelNoProjeto(papelDoConvidado);
-			return membroProjetoRepositorio.save(vinculoExistente);
+		if (vinculo != null && vinculo.getSituacao() == SituacaoNoProjeto.PENDENTE) {
+			throw new RegraDeNegocioExcecao("Ja existe um convite pendente para este usuario.");
 		}
 
-		MembroProjeto novoVinculo = new MembroProjeto();
-		novoVinculo.setProjeto(projeto);
-		novoVinculo.setUsuario(convidado);
-		novoVinculo.setPapelNoProjeto(papelDoConvidado);
-		return membroProjetoRepositorio.save(novoVinculo);
+		if (vinculo == null) {
+			vinculo = new MembroProjeto();
+			vinculo.setProjeto(projeto);
+			vinculo.setUsuario(convidado);
+		}
+		// vinculo novo ou reaproveitado de quem saiu: vira um convite pendente
+		vinculo.setPapelNoProjeto(papelDoConvidado);
+		vinculo.setSituacao(SituacaoNoProjeto.PENDENTE);
+		MembroProjeto convite = membroProjetoRepositorio.save(vinculo);
+
+		notificacaoServico.criar(convidado, TipoNotificacao.CONVITE_PROJETO,
+				usuarioLogado.getNome() + " convidou voce para o projeto '" + projeto.getNome()
+						+ "'. Responda na tela Meus projetos.");
+		return convite;
 	}
 
-	/** Remove um membro do projeto — somente o Gestor; o vinculo e desativado, nunca excluido (RF-01.5). */
+	/** Convites pendentes recebidos pelo usuario logado (RF-01.4). */
+	public List<Map<String, Object>> listarConvites(Usuario usuarioLogado) {
+		return membroProjetoRepositorio.buscarConvitesPendentes(usuarioLogado.getId()).stream()
+				.map(convite -> {
+					Map<String, Object> dados = new HashMap<>();
+					dados.put("id", convite.getId());
+					dados.put("papelNoProjeto", convite.getPapelNoProjeto());
+					dados.put("projeto", Map.of(
+							"id", convite.getProjeto().getId(),
+							"nome", convite.getProjeto().getNome()));
+					dados.put("convidadoPor", convite.getProjeto().getCriadoPor().getNome());
+					return dados;
+				})
+				.toList();
+	}
+
+	/** O convidado aceita o convite e passa a participar do projeto (RF-01.4). */
+	public MembroProjeto aceitarConvite(Usuario usuarioLogado, Long conviteId) {
+		MembroProjeto convite = buscarConvitePendenteDoUsuario(usuarioLogado, conviteId);
+		convite.setSituacao(SituacaoNoProjeto.ATIVO);
+		MembroProjeto aceito = membroProjetoRepositorio.save(convite);
+		notificacaoServico.criar(convite.getProjeto().getCriadoPor(), TipoNotificacao.CONVITE_RESPONDIDO,
+				usuarioLogado.getNome() + " aceitou o convite para o projeto '"
+						+ convite.getProjeto().getNome() + "'.");
+		return aceito;
+	}
+
+	/** O convidado recusa o convite; o vinculo vira INATIVO (RF-01.4). */
+	public void recusarConvite(Usuario usuarioLogado, Long conviteId) {
+		MembroProjeto convite = buscarConvitePendenteDoUsuario(usuarioLogado, conviteId);
+		convite.setSituacao(SituacaoNoProjeto.INATIVO);
+		membroProjetoRepositorio.save(convite);
+		notificacaoServico.criar(convite.getProjeto().getCriadoPor(), TipoNotificacao.CONVITE_RESPONDIDO,
+				usuarioLogado.getNome() + " recusou o convite para o projeto '"
+						+ convite.getProjeto().getNome() + "'.");
+	}
+
+	private MembroProjeto buscarConvitePendenteDoUsuario(Usuario usuario, Long conviteId) {
+		MembroProjeto convite = membroProjetoRepositorio.findById(conviteId)
+				.orElseThrow(() -> new RegraDeNegocioExcecao("Convite nao encontrado."));
+		if (!convite.getUsuario().getId().equals(usuario.getId())) {
+			throw new PermissaoNegadaExcecao("Este convite nao pertence a voce.");
+		}
+		if (convite.getSituacao() != SituacaoNoProjeto.PENDENTE) {
+			throw new RegraDeNegocioExcecao("Este convite ja foi respondido.");
+		}
+		return convite;
+	}
+
+	/**
+	 * Remove um membro (ou cancela um convite pendente) — somente o Gestor.
+	 * O vinculo vira INATIVO, nunca e excluido (RF-01.5).
+	 */
 	public void removerMembro(Usuario usuarioLogado, Long projetoId, Long usuarioId) {
 		validarGestor(projetoId, usuarioLogado);
 
-		MembroProjeto vinculoDoMembro = membroProjetoRepositorio.buscarVinculoAtivo(projetoId, usuarioId)
+		MembroProjeto vinculoDoMembro = membroProjetoRepositorio.buscarVinculo(projetoId, usuarioId)
+				.filter(vinculo -> vinculo.getSituacao() != SituacaoNoProjeto.INATIVO)
 				.orElseThrow(() -> new RegraDeNegocioExcecao("Este usuario nao e membro ativo do projeto."));
 		if (vinculoDoMembro.getPapelNoProjeto() == PapelProjeto.GESTOR) {
 			throw new RegraDeNegocioExcecao("O Gestor nao pode ser removido do proprio projeto.");
 		}
-		vinculoDoMembro.setAtivo(false);
+		vinculoDoMembro.setSituacao(SituacaoNoProjeto.INATIVO);
 		membroProjetoRepositorio.save(vinculoDoMembro);
 	}
 
@@ -174,14 +243,14 @@ public class ProjetoServico {
 		if (vinculo.getPapelNoProjeto() == PapelProjeto.GESTOR) {
 			throw new PermissaoNegadaExcecao("O Gestor nao pode sair do proprio projeto.");
 		}
-		vinculo.setAtivo(false);
+		vinculo.setSituacao(SituacaoNoProjeto.INATIVO);
 		membroProjetoRepositorio.save(vinculo);
 	}
 
-	/** Lista os membros ativos do projeto — qualquer membro pode consultar. */
+	/** Lista os membros ativos e os convites pendentes do projeto — qualquer membro pode consultar. */
 	public List<MembroProjeto> listarMembros(Usuario usuarioLogado, Long projetoId) {
 		buscarVinculoObrigatorio(projetoId, usuarioLogado);
-		return membroProjetoRepositorio.buscarMembrosAtivos(projetoId);
+		return membroProjetoRepositorio.buscarMembrosEConvites(projetoId);
 	}
 
 	// ---------- validacoes de RBAC ----------

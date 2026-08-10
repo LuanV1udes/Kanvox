@@ -52,6 +52,11 @@ public class Tarefa {
 	@Column(nullable = false)
 	private StatusTarefa status = StatusTarefa.A_FAZER;
 
+	// default no banco: tarefas criadas antes deste campo existirem viram MEDIA
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, columnDefinition = "varchar(255) default 'MEDIA'")
+	private PrioridadeTarefa prioridade = PrioridadeTarefa.MEDIA;
+
 	@Column(nullable = false)
 	private LocalDateTime criadoEm = LocalDateTime.now();
 
@@ -127,6 +132,14 @@ public class Tarefa {
 
 	public void setCriadoEm(LocalDateTime criadoEm) {
 		this.criadoEm = criadoEm;
+	}
+
+	public PrioridadeTarefa getPrioridade() {
+		return prioridade;
+	}
+
+	public void setPrioridade(PrioridadeTarefa prioridade) {
+		this.prioridade = prioridade;
 	}
 
 	public LocalDateTime getConcluidaEm() {

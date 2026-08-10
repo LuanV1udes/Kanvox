@@ -87,8 +87,8 @@
 		</main>
 	</div>
 
-	<!-- dialogo de tarefa (RF-03.2 / RF-03.3 / RF-03.5) -->
-	<dialog id="dialogo-tarefa">
+	<!-- dialogo de tarefa (RF-03.2 / RF-03.3 / RF-03.5 / RF-07) -->
+	<dialog id="dialogo-tarefa" class="dialogo-grande">
 		<h2 id="titulo-do-dialogo-tarefa">Nova tarefa</h2>
 		<form id="formulario-tarefa" method="dialog">
 			<label>Título
@@ -100,6 +100,13 @@
 			<label>Prazo
 				<input type="date" id="tarefa-prazo">
 			</label>
+			<label>Prioridade
+				<select id="tarefa-prioridade">
+					<option value="BAIXA">Baixa</option>
+					<option value="MEDIA" selected>Média</option>
+					<option value="ALTA">Alta</option>
+				</select>
+			</label>
 			<label id="rotulo-responsavel">Responsável
 				<select id="tarefa-responsavel"></select>
 			</label>
@@ -109,6 +116,25 @@
 				<button type="submit" class="botao-principal" id="botao-salvar-tarefa">Salvar</button>
 			</div>
 		</form>
+
+		<!-- devolutiva (RF-07): so aparece em tarefas ja existentes -->
+		<div id="secao-colaboracao" hidden>
+			<div class="separador-do-dialogo"></div>
+
+			<p class="titulo-da-secao">Anexos</p>
+			<ul class="lista-de-anexos" id="lista-de-anexos"></ul>
+			<div class="linha-de-anexo" id="linha-de-anexo">
+				<input type="file" id="input-anexo">
+				<button type="button" class="botao-secundario botao-compacto" id="botao-enviar-anexo">Anexar</button>
+			</div>
+
+			<p class="titulo-da-secao">Comentários</p>
+			<ul class="lista-de-comentarios" id="lista-de-comentarios"></ul>
+			<div class="linha-de-comentario" id="linha-de-comentario">
+				<textarea id="novo-comentario" rows="2" maxlength="2000" placeholder="Escreva uma devolutiva…"></textarea>
+				<button type="button" class="botao-principal botao-compacto" id="botao-comentar">Enviar</button>
+			</div>
+		</div>
 	</dialog>
 
 	<!-- dialogo de edicao do projeto (RF-02.2) -->

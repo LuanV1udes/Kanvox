@@ -77,8 +77,8 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 
 | Perfil | Permissões |
 |---|---|
-| **Gestor** | Acesso completo: cria projetos, tarefas, convida membros, edita qualquer tarefa, gera relatórios (com ou sem transcrição de áudio), remove membros |
-| **Membro** | Acessa apenas os projetos em que está inserido; edita apenas as tarefas atribuídas a ele; pode sair de um projeto voluntariamente |
+| **Gestor** | Acesso completo: cria projetos, cria/exclui tarefas, convida membros, edita qualquer tarefa, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio), remove membros |
+| **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); edita e movimenta apenas as tarefas atribuídas a ele; comenta e anexa arquivos em qualquer tarefa do projeto; pode sair de um projeto voluntariamente |
 | **Observador** | Acesso somente leitura ao projeto e ao Kanban |
 
 ---
@@ -89,8 +89,8 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-01.1 — Cadastro e login via e-mail e senha
 - RF-01.2 — Suporte a três perfis **por projeto**: Gestor, Membro, Observador (o papel pertence ao vínculo usuário–projeto, não ao usuário)
 - RF-01.3 — Recuperação de senha via e-mail (link com expiração de 1h). Implementação simples: token e validade armazenados no próprio registro do usuário (dois campos, sem tabela extra), envio via Spring Mail + SMTP gratuito (ex. Gmail). *Se o cronograma apertar, este item é rebaixado a desejável — é o único RF que depende de envio de e-mail.*
-- RF-01.4 — Gestor pode convidar membros para um projeto (**apenas usuários já cadastrados**, localizados por e-mail; convite a e-mails sem conta fica como trabalho futuro)
-- RF-01.5 — Gestor pode remover membros; Membro pode sair voluntariamente de um projeto (em ambos os casos o vínculo `MembroProjeto` é marcado como inativo, nunca excluído — é isso que preserva o histórico, sem tabela de auditoria)
+- RF-01.4 — Gestor pode convidar membros para um projeto (**apenas usuários já cadastrados**, localizados por e-mail; convite a e-mails sem conta fica como trabalho futuro). O convite **fica pendente até o convidado decidir**: o convidado recebe uma notificação e, na tela "Meus projetos", **aceita ou recusa** — só depois de aceito ele passa a ter acesso ao projeto. Isso evita a inclusão indevida de alguém sem consentimento.
+- RF-01.5 — Gestor pode remover membros (ou cancelar um convite ainda pendente); Membro pode sair voluntariamente de um projeto (em todos os casos o vínculo `MembroProjeto` é marcado como inativo, nunca excluído — é isso que preserva o histórico, sem tabela de auditoria)
 
 ### RF-02 — Gerenciamento de Projetos
 - RF-02.1 — Gestor cria projetos (nome, descrição)
@@ -98,12 +98,13 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-02.3 — Visão geral do projeto: progresso, tarefas em aberto, membros, histórico
 
 ### RF-03 — Quadro Kanban
-- RF-03.1 — Quadro com 4 colunas: A Fazer, Em Andamento, Bloqueado, Concluído
+- RF-03.1 — Quadro com 5 colunas: A Fazer, Em Andamento, Bloqueado, **Em Revisão**, Concluído
 - RF-03.2 — Gestor cria/edita/exclui qualquer tarefa do projeto (a criação e a exclusão de tarefas são exclusivas do Gestor)
 - RF-03.3 — Membro edita e movimenta apenas as tarefas atribuídas a ele (não cria tarefas)
 - RF-03.4 — Movimentação de tarefas via drag-and-drop
-- RF-03.5 — Cada tarefa contém: título, descrição, **um** responsável, prazo, status (um único responsável por tarefa no MVP; múltiplos responsáveis exigiriam tabela de junção extra e ficam como melhoria futura)
+- RF-03.5 — Cada tarefa contém: título, descrição, **um** responsável, prazo, **prioridade** (Baixa/Média/Alta), status (um único responsável por tarefa no MVP; múltiplos responsáveis exigiriam tabela de junção extra e ficam como melhoria futura)
 - RF-03.6 — Atualização periódica do quadro via polling automático, refletindo mudanças para todos os membros conectados em poucos segundos
+- RF-03.7 — **Concluir (ou reabrir) uma tarefa é decisão exclusiva do Gestor.** O Membro entrega o trabalho movendo a própria tarefa para a coluna "Em Revisão"; só o Gestor pode movê-la para "Concluído" (ou devolvê-la para outra coluna). Isso garante que toda entrega passe por uma avaliação antes de ser dada como pronta.
 
 ### RF-04 — Relatórios
 - RF-04.1 — Geração automática de relatório a partir do estado atual das tarefas
@@ -123,8 +124,17 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-06.2 — Gestor recebe notificação de tarefas com prazo vencido
 - RF-06.3 — Membro recebe notificação de tarefas recém-atribuídas
 - RF-06.4 — Notificações exibidas dentro da plataforma web
+- RF-06.5 — Gestor e o responsável pela tarefa recebem notificação de novo comentário (RF-07.1), exceto quem escreveu o comentário
+- RF-06.6 — Gestor recebe notificação quando uma tarefa é movida para "Em Revisão" (RF-03.7)
+- RF-06.7 — Convidado recebe notificação de convite a projeto; Gestor recebe notificação quando o convite é aceito ou recusado (RF-01.4)
 
 **Nota de implementação:** a detecção de tarefas com prazo vencido (RF-06.2) é feita por uma rotina agendada do próprio Spring (`@Scheduled`), rodando periodicamente (ex. a cada 30 minutos) para criar as notificações — sem infraestrutura externa. As notificações são buscadas pelo frontend no mesmo polling do Kanban.
+
+### RF-07 — Colaboração na tarefa (devolutiva)
+*(bloco novo — inspirado em ferramentas de mercado como Jira/Trello, mantendo a simplicidade exigida para um TG)*
+- RF-07.1 — Gestor e Membro podem comentar em qualquer tarefa do projeto (Observador tem acesso somente leitura); cada comentário tem autor e data. O autor do comentário ou o Gestor podem excluí-lo.
+- RF-07.2 — Gestor pode anexar arquivos em qualquer tarefa; Membro só nas tarefas atribuídas a ele — é o canal de devolutiva ("entreguei, segue o arquivo"). Limite de 10MB por arquivo, guardado no próprio banco de dados (sem serviço de armazenamento externo, mantendo o RNF-07 de custo zero). Quem enviou o anexo ou o Gestor podem excluí-lo.
+- RF-07.3 — Comentários e anexos ficam bloqueados em projetos encerrados (mesma regra do Kanban).
 
 ---
 
@@ -171,8 +181,10 @@ Nomes de tabelas, classes e campos em português, sem acentuação, seguindo a c
 
 - **Usuario** — id, nome, email, senha (hash), tokenRecuperacao (opcional), tokenExpiraEm (opcional). *Sem campo de papel global* — o papel é sempre por projeto, em MembroProjeto
 - **Projeto** — id, nome, descricao, criadoPor, status, criadoEm
-- **MembroProjeto** — projetoId, usuarioId, papelNoProjeto (gestor/membro/observador), ativo (booleano — vira `false` quando o membro sai ou é removido; o registro nunca é excluído)
-- **Tarefa** — id, projetoId, titulo, descricao, responsavelId, prazo, status (kanban), criadoEm
+- **MembroProjeto** — projetoId, usuarioId, papelNoProjeto (gestor/membro/observador), situacao (pendente/ativo/inativo — nasce `pendente` quando é um convite, vira `ativo` quando o convidado aceita, e `inativo` quando o convite é recusado ou o membro sai/é removido; o registro nunca é excluído, preservando o histórico)
+- **Tarefa** — id, projetoId, titulo, descricao, responsavelId, prazo, prioridade (baixa/media/alta), status (kanban, agora com 5 valores incluindo "em revisão"), concluidaEm (preenchida quando o Gestor conclui; usada no relatório), criadoEm
+- **Comentario** — id, tarefaId, autorId, texto, criadoEm (RF-07.1)
+- **Anexo** — id, tarefaId, nome, tipo, tamanho, dados (bytes do arquivo, até 10MB), enviadoPorId, criadoEm (RF-07.2)
 - **Relatorio** — id, projetoId, conteudo, transcricaoAudio (opcional), geradoPor, geradoEm
 - **Notificacao** — id, usuarioId, tipo, mensagem, lida (booleano), criadoEm
 
@@ -190,13 +202,20 @@ kanvox/
 │   │   │   ├── controlador/          # Recebe requisições HTTP (endpoints)
 │   │   │   │   ├── AutenticacaoControlador.java
 │   │   │   │   ├── ProjetoControlador.java
+│   │   │   │   ├── ConviteControlador.java   # aceitar/recusar convite (RF-01.4)
 │   │   │   │   ├── TarefaControlador.java
+│   │   │   │   ├── ComentarioControlador.java   # RF-07.1
+│   │   │   │   ├── AnexoControlador.java        # RF-07.2
+│   │   │   │   ├── NotificacaoControlador.java
 │   │   │   │   └── RelatorioControlador.java
 │   │   │   │
 │   │   │   ├── servico/              # Regras de negócio
 │   │   │   │   ├── AutenticacaoServico.java
 │   │   │   │   ├── ProjetoServico.java
 │   │   │   │   ├── TarefaServico.java
+│   │   │   │   ├── ComentarioServico.java
+│   │   │   │   ├── AnexoServico.java
+│   │   │   │   ├── NotificacaoServico.java
 │   │   │   │   ├── RelatorioServico.java
 │   │   │   │   └── transcricao/
 │   │   │   │       ├── ServicoTranscricao.java            # interface (abstração)
@@ -205,15 +224,24 @@ kanvox/
 │   │   │   ├── repositorio/          # Acesso ao banco (Spring Data JPA)
 │   │   │   │   ├── UsuarioRepositorio.java
 │   │   │   │   ├── ProjetoRepositorio.java
+│   │   │   │   ├── MembroProjetoRepositorio.java
 │   │   │   │   ├── TarefaRepositorio.java
+│   │   │   │   ├── ComentarioRepositorio.java
+│   │   │   │   ├── AnexoRepositorio.java
+│   │   │   │   ├── NotificacaoRepositorio.java
 │   │   │   │   └── RelatorioRepositorio.java
 │   │   │   │
 │   │   │   ├── modelo/               # Entidades (tabelas do banco)
 │   │   │   │   ├── Usuario.java
 │   │   │   │   ├── Projeto.java
+│   │   │   │   ├── MembroProjeto.java
 │   │   │   │   ├── Tarefa.java
+│   │   │   │   ├── Comentario.java
+│   │   │   │   ├── Anexo.java
 │   │   │   │   ├── Relatorio.java
-│   │   │   │   └── Notificacao.java
+│   │   │   │   ├── Notificacao.java
+│   │   │   │   └── PapelProjeto.java, StatusProjeto.java, SituacaoNoProjeto.java,
+│   │   │   │       StatusTarefa.java, PrioridadeTarefa.java, TipoNotificacao.java  # enums
 │   │   │   │
 │   │   │   ├── config/               # Configurações (segurança, etc.)
 │   │   │   │   └── ConfiguracaoSeguranca.java

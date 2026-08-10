@@ -165,6 +165,14 @@ class RelatorioControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"email\":\"membro.leitor@teste.com\",\"papel\":\"MEMBRO\"}"))
 				.andExpect(status().isCreated());
+		// o membro aceita o convite para entrar no projeto (RF-01.4)
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isOk());
 
 		// membro nao gera relatorio nem transcreve (RF-04.3 / RF-05.1)
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/relatorios")

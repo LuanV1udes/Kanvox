@@ -73,6 +73,9 @@ public class TarefaServico {
 		novaTarefa.setTitulo(dadosRecebidos.getTitulo());
 		novaTarefa.setDescricao(dadosRecebidos.getDescricao());
 		novaTarefa.setPrazo(dadosRecebidos.getPrazo());
+		if (dadosRecebidos.getPrioridade() != null) {
+			novaTarefa.setPrioridade(dadosRecebidos.getPrioridade());
+		}
 		novaTarefa.setResponsavel(dadosRecebidos.getResponsavel() == null ? null
 				: validarResponsavel(projetoId, dadosRecebidos.getResponsavel().getId()));
 		Tarefa tarefaSalva = tarefaRepositorio.save(novaTarefa);
@@ -115,6 +118,9 @@ public class TarefaServico {
 		tarefa.setTitulo(dadosRecebidos.getTitulo());
 		tarefa.setDescricao(dadosRecebidos.getDescricao());
 		tarefa.setPrazo(dadosRecebidos.getPrazo());
+		if (dadosRecebidos.getPrioridade() != null) {
+			tarefa.setPrioridade(dadosRecebidos.getPrioridade());
+		}
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
 		if (responsavelMudou) {
 			notificarAtribuicao(tarefaSalva, usuarioLogado);
@@ -125,12 +131,27 @@ public class TarefaServico {
 	/** Move a tarefa de coluna no Kanban (RF-03.4 — chamado pelo drag-and-drop do frontend). */
 	public Tarefa moverStatus(Usuario usuarioLogado, Long tarefaId, String status) {
 		Tarefa tarefa = buscarTarefa(tarefaId);
-		validarPodeAlterar(tarefa, usuarioLogado);
+		MembroProjeto vinculo = validarPodeAlterar(tarefa, usuarioLogado);
 		validarProjetoAtivo(tarefa.getProjeto());
 
 		StatusTarefa novoStatus = converterStatus(status);
+
+		// RF-03.7: concluir e desfazer a conclusao sao decisoes do Gestor —
+		// o Membro entrega o trabalho movendo a tarefa para Em Revisao
+		if (vinculo.getPapelNoProjeto() != PapelProjeto.GESTOR) {
+			if (novoStatus == StatusTarefa.CONCLUIDO) {
+				throw new PermissaoNegadaExcecao(
+						"Somente o Gestor conclui tarefas. Mova para 'Em Revisao' e aguarde a avaliacao.");
+			}
+			if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
+				throw new PermissaoNegadaExcecao("Somente o Gestor pode reabrir uma tarefa concluida.");
+			}
+		}
+
 		boolean acabouDeSerBloqueada = novoStatus == StatusTarefa.BLOQUEADO
 				&& tarefa.getStatus() != StatusTarefa.BLOQUEADO;
+		boolean acabouDeEntrarEmRevisao = novoStatus == StatusTarefa.EM_REVISAO
+				&& tarefa.getStatus() != StatusTarefa.EM_REVISAO;
 
 		// registra quando a tarefa foi concluida (usado pelo relatorio, RF-04.2);
 		// se ela voltar para outra coluna, o registro e apagado
@@ -144,6 +165,9 @@ public class TarefaServico {
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
 		if (acabouDeSerBloqueada) {
 			notificarBloqueio(tarefaSalva, usuarioLogado);
+		}
+		if (acabouDeEntrarEmRevisao) {
+			notificarRevisao(tarefaSalva, usuarioLogado);
 		}
 		return tarefaSalva;
 	}
@@ -182,6 +206,16 @@ public class TarefaServico {
 		}
 	}
 
+	/** RF-06.6: avisa o Gestor quando uma tarefa entra em revisao aguardando a avaliacao dele. */
+	private void notificarRevisao(Tarefa tarefa, Usuario quemEntregou) {
+		Usuario gestor = tarefa.getProjeto().getCriadoPor();
+		if (!gestor.getId().equals(quemEntregou.getId())) {
+			notificacaoServico.criar(gestor, TipoNotificacao.TAREFA_EM_REVISAO,
+					"A tarefa '" + tarefa.getTitulo() + "' do projeto '"
+							+ tarefa.getProjeto().getNome() + "' foi entregue e aguarda a sua avaliacao.");
+		}
+	}
+
 	// ---------- validacoes internas ----------
 
 	private Tarefa buscarTarefa(Long tarefaId) {
@@ -189,8 +223,11 @@ public class TarefaServico {
 				.orElseThrow(() -> new RegraDeNegocioExcecao("Tarefa nao encontrada."));
 	}
 
-	/** Gestor altera qualquer tarefa; Membro so as atribuidas a ele; Observador nenhuma. */
-	private MembroProjeto validarPodeAlterar(Tarefa tarefa, Usuario usuario) {
+	/**
+	 * Gestor altera qualquer tarefa; Membro so as atribuidas a ele; Observador nenhuma.
+	 * Publica porque o AnexoServico usa a mesma regra para os anexos (RF-07.2).
+	 */
+	public MembroProjeto validarPodeAlterar(Tarefa tarefa, Usuario usuario) {
 		MembroProjeto vinculo = projetoServico.buscarVinculoObrigatorio(
 				tarefa.getProjeto().getId(), usuario);
 		if (vinculo.getPapelNoProjeto() == PapelProjeto.OBSERVADOR) {
@@ -226,7 +263,8 @@ public class TarefaServico {
 		try {
 			return StatusTarefa.valueOf(status == null ? "" : status.toUpperCase());
 		} catch (IllegalArgumentException e) {
-			throw new RegraDeNegocioExcecao("Status invalido. Use A_FAZER, EM_ANDAMENTO, BLOQUEADO ou CONCLUIDO.");
+			throw new RegraDeNegocioExcecao(
+					"Status invalido. Use A_FAZER, EM_ANDAMENTO, BLOQUEADO, EM_REVISAO ou CONCLUIDO.");
 		}
 	}
 

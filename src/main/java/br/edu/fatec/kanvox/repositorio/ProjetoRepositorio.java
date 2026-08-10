@@ -12,7 +12,8 @@ import br.edu.fatec.kanvox.modelo.Projeto;
 public interface ProjetoRepositorio extends JpaRepository<Projeto, Long> {
 
 	/** Projetos em que o usuario e membro ativo (RF-02.3). */
-	@Query("select m.projeto from MembroProjeto m where m.usuario.id = :usuarioId and m.ativo = true")
+	@Query("select m.projeto from MembroProjeto m where m.usuario.id = :usuarioId"
+			+ " and m.situacao = br.edu.fatec.kanvox.modelo.SituacaoNoProjeto.ATIVO")
 	List<Projeto> buscarPorMembro(@Param("usuarioId") Long usuarioId);
 
 }

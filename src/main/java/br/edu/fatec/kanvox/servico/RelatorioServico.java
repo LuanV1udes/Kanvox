@@ -174,6 +174,7 @@ public class RelatorioServico {
 			case A_FAZER -> "A Fazer";
 			case EM_ANDAMENTO -> "Em Andamento";
 			case BLOQUEADO -> "Bloqueado";
+			case EM_REVISAO -> "Em Revisao";
 			case CONCLUIDO -> "Concluido";
 		};
 	}

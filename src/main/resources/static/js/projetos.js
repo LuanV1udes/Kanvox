@@ -34,6 +34,61 @@ async function carregarProjetos() {
 	}
 }
 
+/* ---------- convites pendentes (RF-01.4) ---------- */
+
+const listaDeConvites = document.getElementById('lista-de-convites');
+
+async function carregarConvites() {
+	try {
+		const convites = await chamarApi('/convites');
+		listaDeConvites.hidden = convites.length === 0;
+		listaDeConvites.innerHTML = convites.map(convite => {
+			const rotulos = { MEMBRO: 'Membro', OBSERVADOR: 'Observador' };
+			return `
+				<div class="cartao-convite" data-id="${convite.id}">
+					<div>
+						<strong>${escaparHtml(convite.convidadoPor)}</strong> convidou você para
+						<strong>${escaparHtml(convite.projeto.nome)}</strong>
+						<p class="texto-suave">Papel: ${rotulos[convite.papelNoProjeto]}</p>
+					</div>
+					<div class="acoes-do-convite">
+						<button type="button" class="botao-secundario botao-compacto botao-recusar-convite">Recusar</button>
+						<button type="button" class="botao-principal botao-compacto botao-aceitar-convite">Aceitar</button>
+					</div>
+				</div>
+			`;
+		}).join('');
+
+		listaDeConvites.querySelectorAll('.botao-aceitar-convite').forEach(botao => {
+			botao.addEventListener('click', async () => {
+				const conviteId = botao.closest('.cartao-convite').dataset.id;
+				try {
+					await chamarApi('/convites/' + conviteId + '/aceitar', { method: 'POST' });
+					exibirMensagem('Convite aceito!', 'sucesso');
+					await carregarConvites();
+					await carregarProjetos();
+				} catch (erro) {
+					exibirMensagem(erro.message, 'erro');
+				}
+			});
+		});
+		listaDeConvites.querySelectorAll('.botao-recusar-convite').forEach(botao => {
+			botao.addEventListener('click', async () => {
+				const conviteId = botao.closest('.cartao-convite').dataset.id;
+				try {
+					await chamarApi('/convites/' + conviteId + '/recusar', { method: 'POST' });
+					exibirMensagem('Convite recusado.', 'sucesso');
+					await carregarConvites();
+				} catch (erro) {
+					exibirMensagem(erro.message, 'erro');
+				}
+			});
+		});
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
+
 document.getElementById('botao-novo-projeto').addEventListener('click', () => {
 	document.getElementById('formulario-projeto').reset();
 	dialogoProjeto.showModal();
@@ -60,3 +115,6 @@ document.getElementById('formulario-projeto').addEventListener('submit', async (
 });
 
 carregarProjetos();
+carregarConvites();
+// convites podem chegar a qualquer momento; revisita a lista no mesmo ritmo do polling geral
+setInterval(carregarConvites, 5000);

@@ -823,6 +823,40 @@ button:focus-visible {
 	-webkit-box-orient: vertical;
 }
 
+/* ---------- convites pendentes (RF-01.4) ---------- */
+
+.lista-de-convites {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	margin-bottom: 1.8rem;
+}
+
+.cartao-convite {
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+	flex-wrap: wrap;
+	padding: 0.9rem 1.05rem;
+	background: var(--cor-acento-suave);
+	border: 1px solid var(--cor-acento-borda);
+	border-radius: var(--raio);
+}
+
+.cartao-convite strong {
+	font-size: 0.92rem;
+}
+
+.cartao-convite p {
+	margin: 0.15rem 0 0;
+}
+
+.acoes-do-convite {
+	display: flex;
+	gap: 0.5rem;
+	margin-left: auto;
+}
+
 /* ---------- cabecalho da pagina do projeto ---------- */
 
 .cabecalho-do-projeto {
@@ -848,9 +882,9 @@ button:focus-visible {
 
 .quadro {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(250px, 1fr));
-	gap: 1.25rem;
-	min-width: 1040px;
+	grid-template-columns: repeat(5, minmax(215px, 1fr));
+	gap: 1.1rem;
+	min-width: 1180px;
 }
 
 /* colunas sem caixa: apenas um titulo com linha embaixo */
@@ -885,6 +919,7 @@ button:focus-visible {
 
 .coluna[data-status="EM_ANDAMENTO"] h3::before { background: var(--cor-acento); }
 .coluna[data-status="BLOQUEADO"] h3::before { background: var(--cor-perigo); }
+.coluna[data-status="EM_REVISAO"] h3::before { background: var(--cor-aviso); }
 .coluna[data-status="CONCLUIDO"] h3::before { background: var(--cor-sucesso); }
 
 .coluna h3 span {
@@ -923,11 +958,17 @@ button:focus-visible {
 .cartao-tarefa {
 	padding: 0.75rem 0.85rem;
 	background: var(--cor-superficie);
+	/* faixa fina a esquerda indicando a prioridade (RF-03.5); box-sizing: border-box
+	   (definido globalmente) evita que ela mude o tamanho do cartao no grid */
 	border: 1px solid var(--cor-borda);
+	border-left: 3px solid var(--cor-borda);
 	border-radius: var(--raio-pequeno);
 	cursor: grab;
 	transition: border-color 0.15s, box-shadow 0.15s;
 }
+
+.cartao-tarefa[data-prioridade="ALTA"] { border-left-color: var(--cor-perigo); }
+.cartao-tarefa[data-prioridade="BAIXA"] { border-left-color: var(--cor-borda-forte); }
 
 .cartao-tarefa:hover {
 	border-color: var(--cor-borda-forte);
@@ -1062,12 +1103,19 @@ button:focus-visible {
 
 dialog {
 	width: min(480px, 92vw);
+	max-height: 88vh;
+	overflow-y: auto;
 	padding: 1.6rem;
 	background: var(--cor-superficie);
 	color: var(--cor-tinta);
 	border: 1px solid var(--cor-borda);
 	border-radius: var(--raio-grande);
 	box-shadow: var(--sombra-dialogo);
+}
+
+/* usado no dialogo de tarefa: precisa de mais espaco para comentarios e anexos */
+dialog.dialogo-grande {
+	width: min(640px, 94vw);
 }
 
 dialog h2 {
@@ -1098,6 +1146,122 @@ dialog::backdrop {
 
 .acoes-do-dialogo .botao-perigo {
 	margin-right: auto;
+}
+
+/* ---------- devolutiva na tarefa: comentarios e anexos (RF-07) ---------- */
+
+.separador-do-dialogo {
+	height: 1px;
+	margin: 1.4rem 0 1.2rem;
+	background: var(--cor-borda);
+}
+
+.titulo-da-secao {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0 0 0.65rem;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--cor-tinta-suave);
+}
+
+.lista-de-anexos, .lista-de-comentarios {
+	list-style: none;
+	margin: 0 0 0.7rem;
+	padding: 0;
+	max-height: 200px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.aviso-vazio-secao {
+	margin: 0 0 0.7rem;
+	color: var(--cor-tinta-fraca);
+	font-size: 0.83rem;
+}
+
+.item-anexo {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.55rem 0.7rem;
+	background: var(--cor-superficie-suave);
+	border-radius: var(--raio-pequeno);
+	font-size: 0.83rem;
+}
+
+.item-anexo .nome-do-anexo {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.item-anexo .tamanho-do-anexo {
+	color: var(--cor-tinta-suave);
+	font-size: 0.75rem;
+	white-space: nowrap;
+}
+
+.linha-de-anexo {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	margin-bottom: 1.3rem;
+}
+
+.linha-de-anexo input[type="file"] {
+	flex: 1;
+	margin-top: 0;
+	padding: 0.4rem 0.5rem;
+	font-size: 0.82rem;
+}
+
+.item-comentario {
+	padding: 0.6rem 0.7rem;
+	background: var(--cor-superficie-suave);
+	border-radius: var(--raio-pequeno);
+	font-size: 0.86rem;
+}
+
+.cabecalho-do-comentario {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin-bottom: 0.2rem;
+	font-size: 0.75rem;
+}
+
+.cabecalho-do-comentario .autor-do-comentario {
+	font-weight: 700;
+	color: var(--cor-tinta-media);
+}
+
+.cabecalho-do-comentario .quando {
+	color: var(--cor-tinta-suave);
+}
+
+.cabecalho-do-comentario .botao-texto {
+	margin-left: auto;
+	padding: 0.1rem 0.3rem;
+}
+
+.linha-de-comentario {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-end;
+}
+
+.linha-de-comentario textarea {
+	flex: 1;
+	margin-top: 0;
 }
 
 /* ---------- gravacao de audio (RF-05.1) ---------- */
@@ -1280,7 +1444,7 @@ dialog::backdrop {
 	}
 
 	.quadro {
-		min-width: 900px; /* colunas continuam legiveis, com rolagem horizontal */
+		min-width: 1000px; /* colunas continuam legiveis, com rolagem horizontal */
 	}
 }
 
