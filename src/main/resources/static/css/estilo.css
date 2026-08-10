@@ -1,0 +1,1293 @@
+/* ============================================================
+   Kanvox — folha de estilos unica do frontend
+   CSS puro, sem framework (decisao de projeto: simplicidade)
+
+   Direcao visual: claro e minimalista. A separacao entre as
+   areas vem de bordas finas e de espaco em branco, nao de
+   sombras e caixas cinzas. Existe um unico acento de cor,
+   usado com parcimonia (foco, links, estado ativo); as demais
+   cores servem apenas para comunicar estado (prazo vencido,
+   sucesso, erro, papel do usuario no projeto).
+   ============================================================ */
+
+/* ---------- variaveis de tema ---------- */
+
+/* Tema claro (padrao). O tema escuro logo abaixo redefine apenas as
+   cores — nenhuma outra regra da folha muda de um tema para o outro,
+   porque todas as cores usadas no arquivo saem daqui. */
+:root {
+	/* neutros: a base de todo o visual */
+	--cor-tinta: #14161a;          /* texto principal, botoes primarios */
+	--cor-tinta-media: #4b5261;    /* texto secundario */
+	--cor-tinta-suave: #79808f;    /* legendas, rotulos, apoio */
+	--cor-tinta-fraca: #9aa0ad;    /* placeholder e textos de preenchimento */
+	--cor-tinta-contraste: #ffffff;/* texto sobre a cor-tinta (botao primario) */
+	--cor-tinta-hover: #2c3038;
+	--cor-fundo: #fbfbfc;          /* fundo da pagina */
+	--cor-superficie: #ffffff;     /* cartoes, dialogos */
+	--cor-superficie-suave: #f5f6f8;
+	--cor-superficie-hover: #fdfdfe;
+	--cor-superficie-inativa: #fcfcfd;
+	--cor-superficie-translucida: rgba(255, 255, 255, 0.85); /* cabecalho */
+	--cor-borda: #e7e8ec;
+	--cor-borda-forte: #d3d5dc;
+	--cor-borda-hover: #bcc0ca;
+
+	/* acento unico: foco, links e estado ativo */
+	--cor-acento: #2f5cd6;
+	--cor-acento-suave: #eef2fd;
+	--cor-acento-borda: #d8e1fb;
+	--cor-anel-de-foco: rgba(47, 92, 214, 0.18);
+
+	/* cores de estado */
+	--cor-sucesso: #17794a;
+	--cor-sucesso-suave: #eaf7f0;
+	--cor-sucesso-borda: #cfe9dc;
+	--cor-perigo: #b3261e;
+	--cor-perigo-suave: #fdf0ef;
+	--cor-perigo-borda: #f3d6d3;
+	--cor-aviso: #96590a;
+	--cor-aviso-suave: #fdf5e6;
+	--cor-aviso-borda: #f3e4c4;
+	--cor-info: #0e6f7d;
+	--cor-info-suave: #e9f6f8;
+	--cor-info-borda: #c9e7ec;
+	--cor-sobre-estado: #ffffff;   /* texto sobre fundo de estado cheio */
+
+	/* sombras: usadas so no que realmente flutua sobre a pagina */
+	--sombra-cartao: 0 1px 2px rgba(17, 19, 24, 0.05);
+	--sombra-painel: 0 8px 28px rgba(17, 19, 24, 0.1);
+	--sombra-dialogo: 0 16px 48px rgba(17, 19, 24, 0.16);
+	--sombra-arrasto: 0 8px 24px rgba(17, 19, 24, 0.14);
+	--sombra-flutuante: 0 8px 28px rgba(17, 19, 24, 0.22);
+	--cor-fundo-do-dialogo: rgba(20, 22, 26, 0.35);
+
+	/* medidas */
+	--raio-pequeno: 7px;
+	--raio: 10px;
+	--raio-grande: 14px;
+	--largura-do-conteudo: 1180px;
+
+	/* faz o navegador desenhar campos de data, audio e barras de rolagem
+	   no mesmo tom do tema */
+	color-scheme: light;
+}
+
+/* Tema escuro. O atributo data-tema fica no <html> e e definido por
+   js/tema.js antes da pagina aparecer. */
+:root[data-tema="escuro"] {
+	--cor-tinta: #e9ebef;
+	--cor-tinta-media: #aab2c0;
+	--cor-tinta-suave: #7f8797;
+	--cor-tinta-fraca: #6a7382;
+	--cor-tinta-contraste: #10131a;
+	--cor-tinta-hover: #ffffff;
+	--cor-fundo: #0e1116;
+	--cor-superficie: #161a21;
+	--cor-superficie-suave: #1e232c;
+	--cor-superficie-hover: #1b2029;
+	--cor-superficie-inativa: #13171d;
+	--cor-superficie-translucida: rgba(22, 26, 33, 0.85);
+	--cor-borda: #262c36;
+	--cor-borda-forte: #363d4a;
+	--cor-borda-hover: #48505f;
+
+	--cor-acento: #7ba3f5;
+	--cor-acento-suave: #172136;
+	--cor-acento-borda: #2a3a5c;
+	--cor-anel-de-foco: rgba(123, 163, 245, 0.32);
+
+	--cor-sucesso: #58c08d;
+	--cor-sucesso-suave: #11251c;
+	--cor-sucesso-borda: #204336;
+	--cor-perigo: #ef8981;
+	--cor-perigo-suave: #2a1718;
+	--cor-perigo-borda: #4d2a29;
+	--cor-aviso: #dfae5c;
+	--cor-aviso-suave: #271e10;
+	--cor-aviso-borda: #46371d;
+	--cor-info: #5fc3d4;
+	--cor-info-suave: #0f242a;
+	--cor-info-borda: #1d4049;
+	--cor-sobre-estado: #12161c;
+
+	--sombra-cartao: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--sombra-painel: 0 8px 28px rgba(0, 0, 0, 0.5);
+	--sombra-dialogo: 0 16px 48px rgba(0, 0, 0, 0.6);
+	--sombra-arrasto: 0 8px 24px rgba(0, 0, 0, 0.55);
+	--sombra-flutuante: 0 8px 28px rgba(0, 0, 0, 0.55);
+	--cor-fundo-do-dialogo: rgba(0, 0, 0, 0.6);
+
+	color-scheme: dark;
+}
+
+/* ---------- base ---------- */
+
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+/* Garante que o atributo hidden sempre esconda o elemento, mesmo quando
+   uma classe define display (flex, block...) — sem isso, elementos como o
+   formulario de convite apareceriam para quem nao deveria ve-los. */
+[hidden] {
+	display: none !important;
+}
+
+body {
+	margin: 0;
+	font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	font-size: 16px;
+	background: var(--cor-fundo);
+	color: var(--cor-tinta);
+	line-height: 1.55;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+	margin: 0 0 0.5rem;
+	font-weight: 650;
+	line-height: 1.3;
+}
+
+h1 { font-size: 1.5rem; letter-spacing: -0.022em; }
+h2 { font-size: 1.12rem; letter-spacing: -0.012em; }
+h3 { font-size: 1rem; letter-spacing: -0.008em; }
+
+p {
+	margin: 0 0 0.6rem;
+}
+
+a {
+	color: var(--cor-acento);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+/* ---------- formularios ---------- */
+
+label {
+	display: block;
+	margin-bottom: 1rem;
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--cor-tinta-media);
+}
+
+/* A fonte e declarada campo a campo (e nao com "font: inherit"): dentro de
+   um <label> os campos herdariam o tamanho menor e o peso 600 do rotulo. */
+input, textarea, select {
+	display: block;
+	width: 100%;
+	margin-top: 0.35rem;
+	padding: 0.6rem 0.7rem;
+	font-family: inherit;
+	font-size: 0.95rem;
+	font-weight: 400;
+	color: var(--cor-tinta);
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda-forte);
+	border-radius: var(--raio-pequeno);
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+textarea {
+	resize: vertical;
+	line-height: 1.55;
+}
+
+input::placeholder, textarea::placeholder {
+	color: var(--cor-tinta-fraca);
+}
+
+input:hover, textarea:hover, select:hover {
+	border-color: var(--cor-borda-hover);
+}
+
+input:focus, textarea:focus, select:focus {
+	outline: none;
+	border-color: var(--cor-acento);
+	box-shadow: 0 0 0 3px var(--cor-anel-de-foco);
+}
+
+input:disabled, textarea:disabled, select:disabled {
+	background: var(--cor-superficie-suave);
+	color: var(--cor-tinta-suave);
+	cursor: not-allowed;
+}
+
+/* ---------- botoes ---------- */
+
+button {
+	font-family: inherit;
+	font-size: 0.9rem;
+	font-weight: 600;
+	line-height: 1.2;
+	cursor: pointer;
+	border: 1px solid transparent;
+	border-radius: var(--raio-pequeno);
+	padding: 0.6rem 1rem;
+	transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+button:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--cor-anel-de-foco);
+}
+
+.botao-principal {
+	background: var(--cor-tinta);
+	color: var(--cor-tinta-contraste);
+}
+
+.botao-principal:hover {
+	background: var(--cor-tinta-hover);
+}
+
+.botao-secundario {
+	background: var(--cor-superficie);
+	border-color: var(--cor-borda-forte);
+	color: var(--cor-tinta);
+}
+
+.botao-secundario:hover {
+	background: var(--cor-superficie-suave);
+}
+
+.botao-perigo {
+	background: var(--cor-superficie);
+	border-color: var(--cor-perigo-borda);
+	color: var(--cor-perigo);
+}
+
+.botao-perigo:hover {
+	background: var(--cor-perigo-suave);
+}
+
+/* botao sem moldura, para acoes discretas dentro de paines */
+.botao-texto {
+	background: transparent;
+	color: var(--cor-acento);
+	font-size: 0.78rem;
+	padding: 0.25rem 0.4rem;
+}
+
+.botao-texto:hover {
+	background: var(--cor-acento-suave);
+}
+
+.botao-compacto {
+	padding: 0.42rem 0.8rem;
+	font-size: 0.85rem;
+}
+
+/* ocupa a linha inteira (usado nos formularios de login e cadastro) */
+.botao-largo {
+	width: 100%;
+	padding: 0.7rem 1rem;
+}
+
+/* botao quadrado que contem apenas um icone (sino de notificacoes) */
+.botao-icone {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	background: transparent;
+	color: var(--cor-tinta-media);
+	border-radius: 8px;
+}
+
+.botao-icone:hover {
+	background: var(--cor-superficie-suave);
+	color: var(--cor-tinta);
+}
+
+.botao-icone svg {
+	width: 19px;
+	height: 19px;
+}
+
+/* O botao de tema mostra o icone do tema para o qual vai trocar:
+   no claro aparece a lua, no escuro aparece o sol. */
+:root[data-tema="claro"] .icone-sol { display: none; }
+:root[data-tema="escuro"] .icone-lua { display: none; }
+
+/* na tela de entrada nao existe cabecalho: o botao fica no canto da tela */
+.alternador-fixo {
+	position: fixed;
+	top: 1.1rem;
+	right: 1.1rem;
+}
+
+/* ---------- marca ---------- */
+
+.marca {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.55rem;
+	margin-bottom: 0.4rem;
+}
+
+.marca-simbolo {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 8px;
+	background: var(--cor-tinta);
+	color: var(--cor-tinta-contraste);
+	font-size: 0.95rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+.logotipo {
+	margin: 0;
+	font-size: 1.45rem;
+	font-weight: 700;
+	letter-spacing: -0.03em;
+	color: var(--cor-tinta);
+}
+
+/* ---------- pagina de entrada (login/cadastro) ---------- */
+
+.pagina-entrada {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	padding: 1.5rem;
+}
+
+.cartao-entrada {
+	width: min(400px, 100%);
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-grande);
+	padding: 2.4rem 2.2rem;
+}
+
+.subtitulo {
+	margin: 0 0 1.8rem;
+	text-align: center;
+	color: var(--cor-tinta-suave);
+	font-size: 0.88rem;
+}
+
+/* abas sublinhadas, sem caixa nem fundo */
+.abas {
+	display: flex;
+	gap: 1.5rem;
+	margin-bottom: 1.6rem;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.aba {
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	margin-bottom: -1px;
+	padding: 0.55rem 0.1rem;
+	color: var(--cor-tinta-suave);
+	font-size: 0.92rem;
+}
+
+.aba:hover {
+	color: var(--cor-tinta);
+}
+
+.aba.ativa {
+	color: var(--cor-acento);
+	border-bottom-color: var(--cor-acento);
+}
+
+/* ---------- barra lateral das paginas internas ---------- */
+
+/* A pagina inteira e uma linha: barra lateral fixa a esquerda e o
+   conteudo ocupando o resto. */
+.com-barra-lateral {
+	display: flex;
+	min-height: 100vh;
+}
+
+.barra-lateral {
+	position: sticky;
+	top: 0;
+	z-index: 20;
+	flex-shrink: 0;
+	width: 236px;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	padding: 1.2rem 0.85rem 1rem;
+	background: var(--cor-superficie);
+	border-right: 1px solid var(--cor-borda);
+}
+
+/* min-width: 0 e obrigatorio — sem isso o quadro Kanban (que e largo e
+   rola na horizontal) empurraria a largura da pagina inteira. */
+.area-principal {
+	flex: 1;
+	min-width: 0;
+}
+
+.barra-lateral .logotipo {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	padding: 0 0.6rem;
+	margin-bottom: 1.4rem;
+	font-size: 1.05rem;
+}
+
+.barra-lateral .logotipo:hover {
+	text-decoration: none;
+}
+
+.barra-lateral .marca-simbolo {
+	width: 26px;
+	height: 26px;
+	font-size: 0.85rem;
+}
+
+.navegacao {
+	display: flex;
+	flex-direction: column;
+}
+
+.rotulo-do-grupo {
+	margin: 0 0 0.35rem;
+	padding: 0 0.6rem;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--cor-tinta-suave);
+}
+
+.rotulo-do-grupo + .grupo-de-navegacao {
+	margin-bottom: 1.3rem;
+}
+
+.grupo-de-navegacao {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.item-de-navegacao {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	width: 100%;
+	padding: 0.5rem 0.6rem;
+	background: transparent;
+	border: none;
+	border-radius: 8px;
+	color: var(--cor-tinta-media);
+	font-size: 0.9rem;
+	font-weight: 500;
+	text-align: left;
+}
+
+.item-de-navegacao:hover {
+	background: var(--cor-superficie-suave);
+	color: var(--cor-tinta);
+	text-decoration: none;
+}
+
+.item-de-navegacao.ativo {
+	background: var(--cor-acento-suave);
+	color: var(--cor-acento);
+	font-weight: 600;
+}
+
+.item-de-navegacao svg {
+	flex-shrink: 0;
+	width: 17px;
+	height: 17px;
+}
+
+/* rodape da barra: quem esta logado e as acoes da conta */
+.rodape-da-barra {
+	margin-top: auto;
+	padding-top: 0.9rem;
+	border-top: 1px solid var(--cor-borda);
+}
+
+.acoes-da-barra {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	margin-top: 0.6rem;
+}
+
+.espacador {
+	flex: 1;
+}
+
+.usuario {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	padding: 0 0.6rem;
+}
+
+/* circulo com as iniciais de quem esta logado */
+.avatar {
+	display: grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background: var(--cor-superficie-suave);
+	border: 1px solid var(--cor-borda);
+	color: var(--cor-tinta-media);
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+
+/* nome longo e cortado com reticencias em vez de quebrar a barra */
+.nome-do-usuario {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--cor-tinta-media);
+}
+
+/* ---------- sino e painel de notificacoes (RF-06.4) ---------- */
+
+.notificacoes {
+	position: relative;
+}
+
+.contador-nao-lidas {
+	position: absolute;
+	top: 1px;
+	right: 1px;
+	display: grid;
+	place-items: center;
+	min-width: 17px;
+	height: 17px;
+	padding: 0 4px;
+	background: var(--cor-perigo);
+	color: var(--cor-sobre-estado);
+	border: 2px solid var(--cor-superficie);
+	border-radius: 999px;
+	font-size: 0.62rem;
+	font-weight: 700;
+}
+
+/* O sino fica no rodape da barra lateral, entao o painel abre para cima
+   e para a direita — se abrisse para baixo, ficaria fora da tela. */
+.painel-notificacoes {
+	position: absolute;
+	left: 0;
+	bottom: calc(100% + 0.5rem);
+	width: min(360px, 86vw);
+	max-height: 420px;
+	overflow-y: auto;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio);
+	box-shadow: var(--sombra-painel);
+	padding: 0.4rem;
+}
+
+.painel-notificacoes header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.45rem 0.5rem 0.6rem;
+	margin-bottom: 0.3rem;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.painel-notificacoes header strong {
+	font-size: 0.85rem;
+}
+
+.item-notificacao {
+	padding: 0.55rem;
+	border-radius: 8px;
+	font-size: 0.85rem;
+	color: var(--cor-tinta-media);
+	cursor: pointer;
+}
+
+.item-notificacao:hover {
+	background: var(--cor-superficie-suave);
+}
+
+.item-notificacao.nao-lida {
+	color: var(--cor-tinta);
+	font-weight: 600;
+}
+
+/* ponto de acento marcando a notificacao ainda nao lida */
+.item-notificacao.nao-lida::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 0.45rem;
+	border-radius: 50%;
+	background: var(--cor-acento);
+}
+
+.aviso-vazio {
+	margin: 0;
+	padding: 0.6rem 0.55rem;
+}
+
+.item-notificacao .quando {
+	display: block;
+	margin-top: 0.15rem;
+	color: var(--cor-tinta-suave);
+	font-size: 0.75rem;
+	font-weight: 400;
+}
+
+/* ---------- conteudo das paginas ---------- */
+
+.conteudo {
+	max-width: var(--largura-do-conteudo);
+	margin: 0 auto;
+	padding: 2rem 1.5rem 4rem;
+}
+
+.barra-de-titulo {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+	flex-wrap: wrap;
+	margin-bottom: 1rem;
+}
+
+/* topo da pagina: titulo, apoio e acao principal, separados por uma linha */
+.topo-da-pagina {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	flex-wrap: wrap;
+	padding-bottom: 1.2rem;
+	margin-bottom: 1.6rem;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.topo-da-pagina h1 {
+	margin: 0;
+}
+
+.topo-da-pagina .texto-suave {
+	margin: 0.1rem 0 0;
+}
+
+/* ---------- selos de status e de papel ---------- */
+
+.selo {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.18rem 0.55rem;
+	border: 1px solid var(--cor-borda);
+	border-radius: 6px;
+	background: var(--cor-superficie-suave);
+	color: var(--cor-tinta-media);
+	font-size: 0.75rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.selo::before {
+	content: "";
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	opacity: 0.8;
+}
+
+.selo-ativo {
+	color: var(--cor-sucesso);
+	background: var(--cor-sucesso-suave);
+	border-color: var(--cor-sucesso-borda);
+}
+
+.selo-encerrado {
+	color: var(--cor-tinta-suave);
+	background: var(--cor-superficie-suave);
+	border-color: var(--cor-borda);
+}
+
+.selo-gestor {
+	color: var(--cor-acento);
+	background: var(--cor-acento-suave);
+	border-color: var(--cor-acento-borda);
+}
+
+.selo-membro {
+	color: var(--cor-info);
+	background: var(--cor-info-suave);
+	border-color: var(--cor-info-borda);
+}
+
+.selo-observador {
+	color: var(--cor-aviso);
+	background: var(--cor-aviso-suave);
+	border-color: var(--cor-aviso-borda);
+}
+
+/* ---------- barra de progresso (RF-02.3) ---------- */
+
+.linha-de-progresso {
+	display: flex;
+	align-items: center;
+	gap: 0.85rem;
+	flex-wrap: wrap;
+	margin-top: 1rem;
+}
+
+.progresso {
+	flex: 1;
+	min-width: 140px;
+	max-width: 280px;
+	height: 6px;
+	background: var(--cor-borda);
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.progresso > div {
+	height: 100%;
+	background: var(--cor-tinta);
+	border-radius: 999px;
+	transition: width 0.4s ease;
+}
+
+/* ---------- lista de projetos (RF-02) ---------- */
+
+.grade-de-projetos {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 1rem;
+}
+
+.cartao-projeto {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 1.15rem 1.2rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio);
+	cursor: pointer;
+	transition: border-color 0.15s, background-color 0.15s;
+}
+
+.cartao-projeto:hover {
+	border-color: var(--cor-borda-forte);
+	background: var(--cor-superficie-hover);
+}
+
+.cartao-projeto-topo {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+}
+
+.cartao-projeto h3 {
+	margin: 0;
+	font-size: 1rem;
+}
+
+.cartao-projeto p {
+	margin: 0;
+	color: var(--cor-tinta-suave);
+	font-size: 0.875rem;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+/* ---------- cabecalho da pagina do projeto ---------- */
+
+.cabecalho-do-projeto {
+	padding-bottom: 1.4rem;
+	margin-bottom: 1.8rem;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.cabecalho-do-projeto .barra-de-titulo {
+	margin-bottom: 0.3rem;
+}
+
+.cabecalho-do-projeto h1 {
+	margin: 0;
+}
+
+/* ---------- quadro kanban (RF-03) ---------- */
+
+.rolagem-do-quadro {
+	overflow-x: auto;
+	padding-bottom: 0.6rem;
+}
+
+.quadro {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(250px, 1fr));
+	gap: 1.25rem;
+	min-width: 1040px;
+}
+
+/* colunas sem caixa: apenas um titulo com linha embaixo */
+.coluna {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.coluna h3 {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0;
+	padding-bottom: 0.6rem;
+	border-bottom: 1px solid var(--cor-borda);
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--cor-tinta-suave);
+}
+
+/* ponto colorido: a unica cor que identifica cada coluna */
+.coluna h3::before {
+	content: "";
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--cor-borda-forte);
+}
+
+.coluna[data-status="EM_ANDAMENTO"] h3::before { background: var(--cor-acento); }
+.coluna[data-status="BLOQUEADO"] h3::before { background: var(--cor-perigo); }
+.coluna[data-status="CONCLUIDO"] h3::before { background: var(--cor-sucesso); }
+
+.coluna h3 span {
+	margin-left: auto;
+	padding: 0.05rem 0.45rem;
+	background: var(--cor-superficie-suave);
+	border-radius: 999px;
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+.lista-de-tarefas {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	flex: 1;
+	min-height: 84px;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+
+/* area tracejada indicando que a coluna aceita cartoes soltos ali */
+.lista-de-tarefas:empty {
+	border: 1px dashed var(--cor-borda);
+	border-radius: var(--raio);
+}
+
+.lista-de-tarefas:empty::after {
+	content: "Sem tarefas";
+	margin: auto;
+	color: var(--cor-tinta-fraca);
+	font-size: 0.8rem;
+}
+
+.cartao-tarefa {
+	padding: 0.75rem 0.85rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-pequeno);
+	cursor: grab;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.cartao-tarefa:hover {
+	border-color: var(--cor-borda-forte);
+	box-shadow: var(--sombra-cartao);
+}
+
+.cartao-tarefa:active {
+	cursor: grabbing;
+}
+
+/* tarefa que este usuario nao pode arrastar (RF-03.3) */
+.cartao-tarefa.nao-arrastavel {
+	cursor: pointer;
+	background: var(--cor-superficie-inativa);
+}
+
+.cartao-tarefa.nao-arrastavel .titulo-da-tarefa {
+	color: var(--cor-tinta-media);
+}
+
+.cartao-tarefa .titulo-da-tarefa {
+	font-size: 0.9rem;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.cartao-tarefa .detalhes-da-tarefa {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-top: 0.55rem;
+	font-size: 0.76rem;
+	color: var(--cor-tinta-suave);
+}
+
+.prazo-vencido {
+	color: var(--cor-perigo);
+	font-weight: 700;
+}
+
+/* espaco deixado pelo cartao enquanto ele e arrastado (classes do SortableJS) */
+.sortable-ghost {
+	background: var(--cor-acento-suave);
+	border: 1px dashed var(--cor-acento);
+}
+
+.sortable-drag {
+	box-shadow: var(--sombra-arrasto);
+}
+
+/* ---------- membros (RF-01.4 / RF-01.5) ---------- */
+
+.linha-de-formulario {
+	display: flex;
+	gap: 0.7rem;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	padding-bottom: 1.2rem;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.linha-de-formulario label {
+	margin-bottom: 0;
+	flex: 1;
+	min-width: 180px;
+}
+
+.lista-de-membros {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.lista-de-membros li {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+	flex-wrap: wrap;
+	padding: 0.75rem 0;
+	border-bottom: 1px solid var(--cor-borda);
+	font-size: 0.9rem;
+}
+
+.lista-de-membros li:last-child {
+	border-bottom: none;
+	padding-bottom: 0;
+}
+
+/* botao solto no fim de uma secao (ex.: "Sair deste projeto") */
+.acao-de-secao {
+	margin-top: 1.2rem;
+}
+
+/* ---------- relatorios (RF-04 / RF-05) ---------- */
+
+.cartao-relatorio {
+	padding: 1.1rem 1.2rem;
+	margin-top: 0.9rem;
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio);
+}
+
+.cartao-relatorio:first-child {
+	margin-top: 0;
+}
+
+.cartao-relatorio pre {
+	white-space: pre-wrap;
+	font-family: inherit;
+	font-size: 0.875rem;
+	line-height: 1.6;
+	color: var(--cor-tinta-media);
+	background: var(--cor-fundo);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-pequeno);
+	padding: 0.9rem 1rem;
+	margin: 0.75rem 0 0;
+}
+
+/* trecho narrado por voz e transcrito pelo Whisper */
+.narracao {
+	margin-top: 0.75rem;
+	padding: 0.8rem 0.95rem;
+	background: var(--cor-acento-suave);
+	border-radius: var(--raio-pequeno);
+	font-size: 0.875rem;
+	color: var(--cor-tinta-media);
+}
+
+/* ---------- dialogos ---------- */
+
+dialog {
+	width: min(480px, 92vw);
+	padding: 1.6rem;
+	background: var(--cor-superficie);
+	color: var(--cor-tinta);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-grande);
+	box-shadow: var(--sombra-dialogo);
+}
+
+dialog h2 {
+	margin: 0 0 1.2rem;
+	font-size: 1.1rem;
+}
+
+dialog::backdrop {
+	background: var(--cor-fundo-do-dialogo);
+	backdrop-filter: blur(2px);
+}
+
+.acoes-do-dialogo {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	justify-content: flex-end;
+	margin-top: 1.4rem;
+	padding-top: 1.2rem;
+	border-top: 1px solid var(--cor-borda);
+}
+
+/* uniformiza o tamanho dos botoes do rodape do dialogo */
+.acoes-do-dialogo button {
+	padding: 0.5rem 0.95rem;
+	font-size: 0.875rem;
+}
+
+.acoes-do-dialogo .botao-perigo {
+	margin-right: auto;
+}
+
+/* ---------- gravacao de audio (RF-05.1) ---------- */
+
+.area-de-gravacao {
+	padding: 1.1rem;
+	margin-bottom: 1.2rem;
+	text-align: center;
+	background: var(--cor-fundo);
+	border: 1px dashed var(--cor-borda-forte);
+	border-radius: var(--raio);
+}
+
+.area-de-gravacao audio {
+	width: 100%;
+	margin-top: 0.7rem;
+}
+
+.acoes-da-gravacao {
+	margin-top: 0.7rem;
+}
+
+.gravando {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-left: 0.5rem;
+	color: var(--cor-perigo);
+	font-size: 0.85rem;
+	font-weight: 600;
+	animation: piscar 1.2s infinite;
+}
+
+.gravando::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+@keyframes piscar {
+	50% { opacity: 0.35; }
+}
+
+/* ---------- mensagens ---------- */
+
+.mensagem-flutuante {
+	position: fixed;
+	bottom: 1.5rem;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 100;
+	max-width: 90vw;
+	padding: 0.7rem 1.1rem;
+	background: var(--cor-tinta);
+	color: var(--cor-tinta-contraste);
+	border-radius: var(--raio);
+	box-shadow: var(--sombra-flutuante);
+	font-size: 0.875rem;
+	font-weight: 500;
+	animation: surgir 0.18s ease-out;
+}
+
+.mensagem-flutuante.erro { background: var(--cor-perigo); color: var(--cor-sobre-estado); }
+.mensagem-flutuante.sucesso { background: var(--cor-sucesso); color: var(--cor-sobre-estado); }
+
+@keyframes surgir {
+	from { opacity: 0; transform: translate(-50%, 8px); }
+	to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* erro exibido dentro do cartao de login */
+.mensagem {
+	margin: 1.1rem 0 0;
+	padding: 0.65rem 0.8rem;
+	background: var(--cor-perigo-suave);
+	border: 1px solid var(--cor-perigo-borda);
+	border-radius: var(--raio-pequeno);
+	color: var(--cor-perigo);
+	font-size: 0.85rem;
+	text-align: center;
+}
+
+.texto-suave {
+	color: var(--cor-tinta-suave);
+	font-size: 0.875rem;
+}
+
+/* ---------- responsividade (RNF-05: desktop e tablet) ---------- */
+
+/* Em telas estreitas nao sobra largura para uma coluna fixa: a barra
+   lateral vira uma faixa horizontal no topo, com os mesmos itens. */
+@media (max-width: 900px) {
+	.com-barra-lateral {
+		flex-direction: column;
+	}
+
+	.barra-lateral {
+		width: auto;
+		height: auto;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.7rem;
+		padding: 0.7rem 1rem;
+		border-right: none;
+		border-bottom: 1px solid var(--cor-borda);
+	}
+
+	.barra-lateral .logotipo {
+		margin-bottom: 0;
+		padding: 0;
+	}
+
+	.navegacao {
+		flex-direction: row;
+		align-items: center;
+		gap: 0.2rem;
+		overflow-x: auto;
+	}
+
+	.rotulo-do-grupo {
+		display: none; /* "Geral" e "Projeto" so fazem sentido empilhados */
+	}
+
+	.rotulo-do-grupo + .grupo-de-navegacao {
+		margin-bottom: 0;
+	}
+
+	.grupo-de-navegacao {
+		flex-direction: row;
+	}
+
+	.item-de-navegacao {
+		width: auto;
+		white-space: nowrap;
+	}
+
+	.rodape-da-barra {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-left: auto;
+		padding-top: 0;
+		border-top: none;
+	}
+
+	.acoes-da-barra {
+		margin-top: 0;
+	}
+
+	.acoes-da-barra .espacador {
+		display: none; /* na horizontal os botoes ficam juntos */
+	}
+
+	/* de volta ao comportamento normal: aqui o sino tem espaco abaixo */
+	.painel-notificacoes {
+		top: calc(100% + 0.5rem);
+		bottom: auto;
+		left: auto;
+		right: 0;
+	}
+}
+
+@media (max-width: 720px) {
+	.conteudo {
+		padding: 1.5rem 1rem 3rem;
+	}
+
+	.item-de-navegacao span {
+		display: none; /* fica so o icone */
+	}
+
+	.nome-do-usuario {
+		display: none; /* fica so o avatar */
+	}
+
+	.cartao-entrada {
+		padding: 1.9rem 1.4rem;
+	}
+
+	.quadro {
+		min-width: 900px; /* colunas continuam legiveis, com rolagem horizontal */
+	}
+}
+
+/* respeita quem pediu menos animacao no sistema operacional (RNF-05) */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}

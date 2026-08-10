@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Kanvox — Meus projetos</title>
+	<link rel="stylesheet" href="css/estilo.css">
+	<!-- no <head> de proposito: aplica o tema antes da pagina aparecer -->
+	<script src="js/tema.js"></script>
+</head>
+<body class="com-barra-lateral">
+
+	<aside id="barra-lateral"></aside>
+
+	<div class="area-principal">
+		<main class="conteudo">
+			<div class="topo-da-pagina">
+				<div>
+					<h1>Meus projetos</h1>
+					<p class="texto-suave">Projetos que você criou ou nos quais foi incluído.</p>
+				</div>
+				<div class="espacador"></div>
+				<button type="button" class="botao-principal botao-compacto" id="botao-novo-projeto">Novo projeto</button>
+			</div>
+
+			<div class="grade-de-projetos" id="grade-de-projetos"></div>
+			<p class="texto-suave" id="aviso-sem-projetos" hidden>
+				Você ainda não participa de nenhum projeto. Crie o primeiro no botão acima.
+			</p>
+		</main>
+	</div>
+
+	<!-- dialogo de criacao de projeto (RF-02.1) -->
+	<dialog id="dialogo-projeto">
+		<h2>Novo projeto</h2>
+		<form id="formulario-projeto" method="dialog">
+			<label>Nome
+				<input type="text" id="projeto-nome" required maxlength="120">
+			</label>
+			<label>Descrição
+				<textarea id="projeto-descricao" rows="3" maxlength="2000"></textarea>
+			</label>
+			<div class="acoes-do-dialogo">
+				<button type="button" class="botao-secundario" id="botao-cancelar-projeto">Cancelar</button>
+				<button type="submit" class="botao-principal">Criar projeto</button>
+			</div>
+		</form>
+	</dialog>
+
+	<script src="js/api.js"></script>
+	<script src="js/navegacao.js"></script>
+	<script src="js/projetos.js"></script>
+</body>
+</html>

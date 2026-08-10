@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Kanvox — Entrar</title>
+	<link rel="stylesheet" href="css/estilo.css">
+	<!-- no <head> de proposito: aplica o tema antes da pagina aparecer -->
+	<script src="js/tema.js"></script>
+</head>
+<body class="pagina-entrada">
+
+	<div id="area-do-tema"></div>
+
+	<main class="cartao-entrada">
+		<div class="marca">
+			<span class="marca-simbolo" aria-hidden="true">K</span>
+			<h1 class="logotipo">Kanvox</h1>
+		</div>
+		<p class="subtitulo">Gestão de projetos com relatórios narrados por voz</p>
+
+		<div class="abas" role="tablist">
+			<button type="button" id="aba-entrar" class="aba ativa"
+				role="tab" aria-selected="true" aria-controls="formulario-entrar">Entrar</button>
+			<button type="button" id="aba-cadastrar" class="aba"
+				role="tab" aria-selected="false" aria-controls="formulario-cadastrar">Criar conta</button>
+		</div>
+
+		<form id="formulario-entrar" role="tabpanel" aria-labelledby="aba-entrar">
+			<label>E-mail
+				<input type="email" id="entrar-email" required autocomplete="email">
+			</label>
+			<label>Senha
+				<input type="password" id="entrar-senha" required autocomplete="current-password">
+			</label>
+			<button type="submit" class="botao-principal botao-largo">Entrar</button>
+		</form>
+
+		<form id="formulario-cadastrar" role="tabpanel" aria-labelledby="aba-cadastrar" hidden>
+			<label>Nome
+				<input type="text" id="cadastrar-nome" required autocomplete="name">
+			</label>
+			<label>E-mail
+				<input type="email" id="cadastrar-email" required autocomplete="email">
+			</label>
+			<label>Senha
+				<input type="password" id="cadastrar-senha" required minlength="6" autocomplete="new-password">
+			</label>
+			<button type="submit" class="botao-principal botao-largo">Criar conta</button>
+		</form>
+
+		<p id="mensagem" class="mensagem" role="alert" hidden></p>
+	</main>
+
+	<script src="js/api.js"></script>
+	<script src="js/autenticacao.js"></script>
+</body>
+</html>

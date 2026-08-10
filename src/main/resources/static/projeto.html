@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Kanvox — Projeto</title>
+	<link rel="stylesheet" href="css/estilo.css">
+	<!-- no <head> de proposito: aplica o tema antes da pagina aparecer -->
+	<script src="js/tema.js"></script>
+</head>
+<body class="com-barra-lateral">
+
+	<aside id="barra-lateral"></aside>
+
+	<div class="area-principal">
+		<main class="conteudo">
+
+			<!-- ---------- visao: quadro (RF-02.3 / RF-03) ---------- -->
+			<section data-conteudo-da-visao="quadro">
+				<div class="cabecalho-do-projeto">
+					<div class="barra-de-titulo">
+						<h1 id="nome-do-projeto">Carregando…</h1>
+						<span class="selo" id="selo-status"></span>
+						<span class="selo" id="selo-meu-papel"></span>
+						<div class="espacador"></div>
+						<button type="button" class="botao-secundario botao-compacto" id="botao-editar-projeto" hidden>Editar</button>
+						<button type="button" class="botao-perigo botao-compacto" id="botao-encerrar-projeto" hidden>Encerrar projeto</button>
+					</div>
+					<p class="texto-suave" id="descricao-do-projeto"></p>
+					<div class="linha-de-progresso">
+						<div class="progresso"><div id="barra-de-progresso" style="width:0%"></div></div>
+						<span class="texto-suave" id="resumo-do-progresso"></span>
+						<div class="espacador"></div>
+						<button type="button" class="botao-principal botao-compacto" id="botao-nova-tarefa" hidden>Nova tarefa</button>
+					</div>
+				</div>
+
+				<div class="rolagem-do-quadro">
+					<div class="quadro" id="quadro"></div>
+				</div>
+			</section>
+
+			<!-- ---------- visao: membros (RF-01.4 / RF-01.5) ---------- -->
+			<section data-conteudo-da-visao="membros" hidden>
+				<div class="topo-da-pagina">
+					<div>
+						<h1>Membros</h1>
+						<p class="texto-suave">Quem participa deste projeto e com qual papel.</p>
+					</div>
+				</div>
+
+				<div class="linha-de-formulario" id="formulario-convite" hidden>
+					<label>E-mail de quem já tem conta
+						<input type="email" id="convite-email" placeholder="colega@exemplo.com">
+					</label>
+					<label>Papel
+						<select id="convite-papel">
+							<option value="MEMBRO">Membro</option>
+							<option value="OBSERVADOR">Observador</option>
+						</select>
+					</label>
+					<button type="button" class="botao-principal botao-compacto" id="botao-convidar">Convidar</button>
+				</div>
+
+				<ul class="lista-de-membros" id="lista-de-membros"></ul>
+
+				<button type="button" class="botao-perigo botao-compacto acao-de-secao" id="botao-sair-do-projeto" hidden>
+					Sair deste projeto
+				</button>
+			</section>
+
+			<!-- ---------- visao: relatorios (RF-04 / RF-05) ---------- -->
+			<section data-conteudo-da-visao="relatorios" hidden>
+				<div class="topo-da-pagina">
+					<div>
+						<h1>Relatórios</h1>
+						<p class="texto-suave">Resumos do projeto, com narração por voz opcional.</p>
+					</div>
+					<div class="espacador"></div>
+					<button type="button" class="botao-principal botao-compacto" id="botao-novo-relatorio" hidden>Gerar relatório</button>
+				</div>
+
+				<div id="lista-de-relatorios"></div>
+				<p class="texto-suave" id="aviso-sem-relatorios" hidden>Nenhum relatório gerado ainda.</p>
+			</section>
+
+		</main>
+	</div>
+
+	<!-- dialogo de tarefa (RF-03.2 / RF-03.3 / RF-03.5) -->
+	<dialog id="dialogo-tarefa">
+		<h2 id="titulo-do-dialogo-tarefa">Nova tarefa</h2>
+		<form id="formulario-tarefa" method="dialog">
+			<label>Título
+				<input type="text" id="tarefa-titulo" required maxlength="120">
+			</label>
+			<label>Descrição
+				<textarea id="tarefa-descricao" rows="3" maxlength="2000"></textarea>
+			</label>
+			<label>Prazo
+				<input type="date" id="tarefa-prazo">
+			</label>
+			<label id="rotulo-responsavel">Responsável
+				<select id="tarefa-responsavel"></select>
+			</label>
+			<div class="acoes-do-dialogo">
+				<button type="button" class="botao-perigo" id="botao-excluir-tarefa" hidden>Excluir</button>
+				<button type="button" class="botao-secundario" id="botao-cancelar-tarefa">Cancelar</button>
+				<button type="submit" class="botao-principal" id="botao-salvar-tarefa">Salvar</button>
+			</div>
+		</form>
+	</dialog>
+
+	<!-- dialogo de edicao do projeto (RF-02.2) -->
+	<dialog id="dialogo-editar-projeto">
+		<h2>Editar projeto</h2>
+		<form id="formulario-editar-projeto" method="dialog">
+			<label>Nome
+				<input type="text" id="editar-nome" required maxlength="120">
+			</label>
+			<label>Descrição
+				<textarea id="editar-descricao" rows="3" maxlength="2000"></textarea>
+			</label>
+			<div class="acoes-do-dialogo">
+				<button type="button" class="botao-secundario" id="botao-cancelar-edicao">Cancelar</button>
+				<button type="submit" class="botao-principal">Salvar</button>
+			</div>
+		</form>
+	</dialog>
+
+	<!-- dialogo de relatorio com narracao por voz (RF-04 / RF-05) -->
+	<dialog id="dialogo-relatorio">
+		<h2>Gerar relatório</h2>
+		<p class="texto-suave">
+			O relatório é montado automaticamente a partir do estado atual das tarefas.
+			Se quiser, grave uma narração: o áudio é transcrito e você revisa o texto antes de salvar.
+		</p>
+		<div class="area-de-gravacao">
+			<button type="button" class="botao-secundario botao-compacto" id="botao-gravar">🎙️ Gravar narração</button>
+			<span id="indicador-de-gravacao" class="gravando" hidden>gravando… clique para parar</span>
+			<audio id="audio-gravado" controls hidden></audio>
+			<div class="acoes-da-gravacao">
+				<button type="button" class="botao-principal botao-compacto" id="botao-transcrever" hidden>Transcrever áudio</button>
+				<span id="indicador-de-transcricao" class="texto-suave" hidden>Transcrevendo…</span>
+			</div>
+		</div>
+		<label>Narração transcrita (revise e edite antes de salvar)
+			<textarea id="texto-da-narracao" rows="4" placeholder="A transcrição aparecerá aqui para você revisar — ou digite manualmente."></textarea>
+		</label>
+		<div class="acoes-do-dialogo">
+			<button type="button" class="botao-secundario" id="botao-cancelar-relatorio">Cancelar</button>
+			<button type="button" class="botao-principal" id="botao-gerar-relatorio">Gerar relatório</button>
+		</div>
+	</dialog>
+
+	<script src="js/sortable.min.js"></script>
+	<script src="js/api.js"></script>
+	<script src="js/navegacao.js"></script>
+	<script src="js/projeto.js"></script>
+</body>
+</html>
