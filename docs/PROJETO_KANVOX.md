@@ -77,8 +77,8 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 
 | Perfil | Permissões |
 |---|---|
-| **Gestor** | Acesso completo: cria projetos, cria/exclui tarefas, convida membros, edita qualquer tarefa, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio), remove membros |
-| **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); edita e movimenta apenas as tarefas atribuídas a ele; comenta e anexa arquivos em qualquer tarefa do projeto; pode sair de um projeto voluntariamente |
+| **Gestor** | Acesso completo: cria projetos, cria/edita o conteúdo/exclui tarefas, convida membros, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio), remove membros |
+| **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); **movimenta** (via Kanban) apenas as tarefas atribuídas a ele, mas **não edita os dados** delas (título, descrição, prazo, prioridade, responsável — isso é exclusivo do Gestor); comenta em qualquer tarefa do projeto e anexa arquivos nas atribuídas a ele; pode sair de um projeto voluntariamente |
 | **Observador** | Acesso somente leitura ao projeto e ao Kanban |
 
 ---
@@ -88,7 +88,7 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 ### RF-01 — Autenticação e Perfis de Acesso
 - RF-01.1 — Cadastro e login via e-mail e senha
 - RF-01.2 — Suporte a três perfis **por projeto**: Gestor, Membro, Observador (o papel pertence ao vínculo usuário–projeto, não ao usuário)
-- RF-01.3 — Recuperação de senha via e-mail (link com expiração de 1h). Implementação simples: token e validade armazenados no próprio registro do usuário (dois campos, sem tabela extra), envio via Spring Mail + SMTP gratuito (ex. Gmail). *Se o cronograma apertar, este item é rebaixado a desejável — é o único RF que depende de envio de e-mail.*
+- RF-01.3 — Recuperação de senha via e-mail (link com expiração de 1h). Implementado: token (UUID) e validade armazenados no próprio registro do usuário (`tokenRecuperacao`, `tokenExpiraEm` — sem tabela extra), envio via Spring Mail + SMTP (credenciais em variável de ambiente, nunca no código). O e-mail é enviado em HTML, com a identidade visual do Kanvox (selo "K" e botão de ação na cor de destaque do app), acompanhado de uma versão em texto puro como alternativa para clientes que não renderizam HTML. Por segurança, a resposta da API é sempre a mesma genérica, exista ou não o e-mail informado — evita que alguém descubra quais contas estão cadastradas testando e-mails ao acaso. O token vale uma única vez: some assim que a senha é trocada. Falha no envio do e-mail é registrada em log e não impede o restante do fluxo (mesmo padrão de degradação graciosa do RNF-03). A tela de redefinição consulta o e-mail associado ao token (sem risco de enumeração — só quem já possui o token, recebido por e-mail, consegue essa informação) e mostra "Redefinindo a senha de fulano@exemplo.com" antes de pedir a nova senha, para o usuário confirmar que é a conta certa. Testado de ponta a ponta com uma conta Gmail real.
 - RF-01.4 — Gestor pode convidar membros para um projeto (**apenas usuários já cadastrados**, localizados por e-mail; convite a e-mails sem conta fica como trabalho futuro). O convite **fica pendente até o convidado decidir**: o convidado recebe uma notificação e, na tela "Meus projetos", **aceita ou recusa** — só depois de aceito ele passa a ter acesso ao projeto. Isso evita a inclusão indevida de alguém sem consentimento.
 - RF-01.5 — Gestor pode remover membros (ou cancelar um convite ainda pendente); Membro pode sair voluntariamente de um projeto (em todos os casos o vínculo `MembroProjeto` é marcado como inativo, nunca excluído — é isso que preserva o histórico, sem tabela de auditoria)
 
@@ -99,8 +99,8 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 
 ### RF-03 — Quadro Kanban
 - RF-03.1 — Quadro com 5 colunas: A Fazer, Em Andamento, Bloqueado, **Em Revisão**, Concluído
-- RF-03.2 — Gestor cria/edita/exclui qualquer tarefa do projeto (a criação e a exclusão de tarefas são exclusivas do Gestor)
-- RF-03.3 — Membro edita e movimenta apenas as tarefas atribuídas a ele (não cria tarefas)
+- RF-03.2 — Gestor cria, edita o conteúdo e exclui qualquer tarefa do projeto (criação, edição de dados e exclusão são exclusivas do Gestor)
+- RF-03.3 — Membro **apenas movimenta** (via drag-and-drop / mudança de coluna) as tarefas atribuídas a ele — não cria tarefas nem edita título, descrição, prazo, prioridade ou responsável, mesmo das próprias tarefas. A colaboração do Membro acontece via comentários e anexos (RF-07), não editando os dados da tarefa diretamente
 - RF-03.4 — Movimentação de tarefas via drag-and-drop
 - RF-03.5 — Cada tarefa contém: título, descrição, **um** responsável, prazo, **prioridade** (Baixa/Média/Alta), status (um único responsável por tarefa no MVP; múltiplos responsáveis exigiriam tabela de junção extra e ficam como melhoria futura)
 - RF-03.6 — Atualização periódica do quadro via polling automático, refletindo mudanças para todos os membros conectados em poucos segundos

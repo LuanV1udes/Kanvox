@@ -5,20 +5,110 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** Testes do fluxo de cadastro e login (RF-01.1). */
+import br.edu.fatec.kanvox.modelo.Usuario;
+import br.edu.fatec.kanvox.repositorio.UsuarioRepositorio;
+import jakarta.mail.Address;
+import jakarta.mail.Multipart;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+
+/**
+ * Testes do fluxo de cadastro, login e recuperacao de senha (RF-01.1 / RF-01.3).
+ * O envio real de e-mail e substituido por uma implementacao falsa (abaixo),
+ * que so guarda as mensagens em memoria — os testes nao dependem de SMTP.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(AutenticacaoControladorTestes.ConfiguracaoDeEmailFalso.class)
 class AutenticacaoControladorTestes {
+
+	@TestConfiguration
+	static class ConfiguracaoDeEmailFalso {
+		static final List<MimeMessage> MENSAGENS_ENVIADAS = new ArrayList<>();
+		private static final Session SESSAO_DE_TESTE = Session.getInstance(new Properties());
+
+		@Bean
+		@Primary
+		JavaMailSender javaMailSenderFalso() {
+			JavaMailSender falso = Mockito.mock(JavaMailSender.class);
+			// cada chamada devolve uma mensagem NOVA, igual a implementacao real faria
+			Mockito.when(falso.createMimeMessage()).thenAnswer(invocacao -> new MimeMessage(SESSAO_DE_TESTE));
+			Mockito.doAnswer(invocacao -> {
+				MENSAGENS_ENVIADAS.add(invocacao.getArgument(0));
+				return null;
+			}).when(falso).send(Mockito.any(MimeMessage.class));
+			return falso;
+		}
+	}
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private UsuarioRepositorio usuarioRepositorio;
+
+	/** Extrai o token do link presente no corpo do e-mail mais recente enviado ao destinatario. */
+	private String extrairTokenDoUltimoEmailPara(String destinatario) throws Exception {
+		MimeMessage encontrada = null;
+		for (MimeMessage mensagem : ConfiguracaoDeEmailFalso.MENSAGENS_ENVIADAS) {
+			for (Address endereco : mensagem.getAllRecipients()) {
+				if (endereco.toString().contains(destinatario)) {
+					encontrada = mensagem;
+				}
+			}
+		}
+		if (encontrada == null) {
+			throw new AssertionError("Nenhum e-mail enviado para " + destinatario);
+		}
+
+		// modo multipart=true aninha "multipart/alternative" (texto+html) dentro de um
+		// "multipart/mixed" externo — desce recursivamente ate achar a parte com o link
+		String textoComOLink = buscarTextoComToken(encontrada.getContent());
+		if (textoComOLink == null) {
+			throw new AssertionError("Link com token nao encontrado no corpo do e-mail.");
+		}
+
+		Matcher correspondencia = Pattern.compile("token=([\\w-]+)").matcher(textoComOLink);
+		if (!correspondencia.find()) {
+			throw new AssertionError("Link com token nao encontrado no corpo do e-mail.");
+		}
+		return correspondencia.group(1);
+	}
+
+	private String buscarTextoComToken(Object conteudo) throws Exception {
+		if (conteudo instanceof String texto) {
+			return texto.contains("token=") ? texto : null;
+		}
+		if (conteudo instanceof Multipart multipart) {
+			for (int indice = 0; indice < multipart.getCount(); indice++) {
+				String texto = buscarTextoComToken(multipart.getBodyPart(indice).getContent());
+				if (texto != null) {
+					return texto;
+				}
+			}
+		}
+		return null;
+	}
 
 	@Test
 	void cadastroCriaUsuarioSemExporASenha() throws Exception {
@@ -117,6 +207,131 @@ class AutenticacaoControladorTestes {
 				.header("Authorization", "Bearer " + token))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.erro").value("Rota nao encontrada."));
+	}
+
+	@Test
+	void fluxoCompletoDeRecuperacaoDeSenhaFunciona() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Recupera\",\"email\":\"recupera@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"recupera@teste.com\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mensagem").value("Se este e-mail estiver cadastrado, enviamos um link de redefinição."));
+
+		String token = extrairTokenDoUltimoEmailPara("recupera@teste.com");
+
+		// a tela de redefinicao consulta o e-mail da conta antes de pedir a nova senha
+		mockMvc.perform(get("/api/autenticacao/token-recuperacao/" + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.email").value("recupera@teste.com"));
+
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + token + "\",\"novaSenha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mensagem").value("Senha redefinida com sucesso. Você já pode entrar."));
+
+		// a senha antiga nao funciona mais
+		mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"recupera@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.andExpect(status().isBadRequest());
+
+		// a senha nova funciona
+		mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"recupera@teste.com\",\"senha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.token").isNotEmpty());
+
+		// o mesmo token nao pode ser reutilizado — vale uma unica vez (RF-01.3)
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + token + "\",\"novaSenha\":\"outraSenha123\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Link de redefinicao invalido ou ja utilizado."));
+	}
+
+	@Test
+	void consultarTokenDeRecuperacaoInvalidoOuExpiradoERejeitado() throws Exception {
+		mockMvc.perform(get("/api/autenticacao/token-recuperacao/token-que-nao-existe"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Link de redefinicao invalido ou ja utilizado."));
+
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Consulta Expirada\",\"email\":\"consulta.expirada@teste.com\",\"senha\":\"123456\"}"))
+				.andExpect(status().isCreated());
+		Usuario usuario = usuarioRepositorio.buscarPorEmail("consulta.expirada@teste.com").orElseThrow();
+		usuario.setTokenRecuperacao("token-de-consulta-expirado");
+		usuario.setTokenExpiraEm(LocalDateTime.now().minusMinutes(1));
+		usuarioRepositorio.save(usuario);
+
+		mockMvc.perform(get("/api/autenticacao/token-recuperacao/token-de-consulta-expirado"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Link de redefinicao expirado. Solicite um novo."));
+	}
+
+	@Test
+	void esqueciSenhaComEmailInexistenteRespondeGenericoSemQuebrar() throws Exception {
+		// nao revela se o e-mail existe ou nao (evita enumeracao de contas, RNF-02)
+		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"nao-cadastrado@teste.com\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mensagem").value("Se este e-mail estiver cadastrado, enviamos um link de redefinição."));
+	}
+
+	@Test
+	void redefinirSenhaComTokenInvalidoERejeitado() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"token-que-nao-existe\",\"novaSenha\":\"123456\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Link de redefinicao invalido ou ja utilizado."));
+	}
+
+	@Test
+	void redefinirSenhaComTokenExpiradoERejeitado() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Expirado\",\"email\":\"expirado@teste.com\",\"senha\":\"123456\"}"))
+				.andExpect(status().isCreated());
+
+		// simula um token gerado ha mais de 1h (a passagem do tempo nao e testavel sem mexer no relogio)
+		Usuario usuario = usuarioRepositorio.buscarPorEmail("expirado@teste.com").orElseThrow();
+		usuario.setTokenRecuperacao("token-expirado-de-teste");
+		usuario.setTokenExpiraEm(LocalDateTime.now().minusMinutes(1));
+		usuarioRepositorio.save(usuario);
+
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"token-expirado-de-teste\",\"novaSenha\":\"123456novo\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Link de redefinicao expirado. Solicite um novo."));
+	}
+
+	@Test
+	void redefinirSenhaComSenhaCurtaERejeitada() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Curto\",\"email\":\"curto@teste.com\",\"senha\":\"123456\"}"))
+				.andExpect(status().isCreated());
+		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"curto@teste.com\"}"))
+				.andExpect(status().isOk());
+		String token = extrairTokenDoUltimoEmailPara("curto@teste.com");
+
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + token + "\",\"novaSenha\":\"123\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("A nova senha deve ter pelo menos 6 caracteres."));
 	}
 
 }

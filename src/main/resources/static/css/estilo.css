@@ -1346,6 +1346,13 @@ dialog::backdrop {
 	text-align: center;
 }
 
+/* link discreto abaixo de um formulario (ex. "Esqueceu sua senha?") */
+.link-auxiliar {
+	margin: 0.9rem 0 0;
+	text-align: center;
+	font-size: 0.85rem;
+}
+
 .texto-suave {
 	color: var(--cor-tinta-suave);
 	font-size: 0.875rem;

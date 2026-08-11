@@ -21,8 +21,10 @@ import br.edu.fatec.kanvox.repositorio.TarefaRepositorio;
 /**
  * Regras de negocio do quadro Kanban (RF-03).
  * Permissoes por papel, validadas aqui na camada de servico (RNF-02):
- * - Gestor: cria, edita, move e exclui qualquer tarefa do projeto (RF-03.2)
- * - Membro: edita e move apenas as tarefas atribuidas a ele (RF-03.3); nao cria
+ * - Gestor: cria, edita o conteudo, move e exclui qualquer tarefa do projeto (RF-03.2)
+ * - Membro: apenas movimenta (drag-and-drop / mudanca de status) as tarefas
+ *   atribuidas a ele (RF-03.3) — nao cria nem edita titulo/descricao/prazo/
+ *   prioridade/responsavel; colabora via comentarios e anexos (RF-07)
  * - Observador: somente leitura
  */
 @Service
@@ -84,13 +86,14 @@ public class TarefaServico {
 	}
 
 	/**
-	 * Edita titulo, descricao, prazo e responsavel da tarefa.
-	 * Gestor edita qualquer tarefa; Membro apenas as atribuidas a ele,
-	 * e sem poder trocar o responsavel (reatribuir e acao de Gestor).
+	 * Edita titulo, descricao, prazo, prioridade e responsavel da tarefa.
+	 * Editar o CONTEUDO da tarefa e exclusivo do Gestor (RF-03.2) — o Membro
+	 * so movimenta a propria tarefa entre colunas (ver moverStatus) e
+	 * colabora via comentarios/anexos (RF-07), nunca edita os dados dela.
 	 */
 	public Tarefa editar(Usuario usuarioLogado, Long tarefaId, Tarefa dadosRecebidos) {
 		Tarefa tarefa = buscarTarefa(tarefaId);
-		MembroProjeto vinculo = validarPodeAlterar(tarefa, usuarioLogado);
+		projetoServico.validarGestor(tarefa.getProjeto().getId(), usuarioLogado);
 		validarProjetoAtivo(tarefa.getProjeto());
 		if (dadosRecebidos.getTitulo() == null || dadosRecebidos.getTitulo().isBlank()) {
 			throw new RegraDeNegocioExcecao("O titulo da tarefa e obrigatorio.");
@@ -101,14 +104,8 @@ public class TarefaServico {
 		Long responsavelAtualId = tarefa.getResponsavel() == null ? null
 				: tarefa.getResponsavel().getId();
 		boolean responsavelMudou = novoResponsavelId != null && !novoResponsavelId.equals(responsavelAtualId);
-
-		if (vinculo.getPapelNoProjeto() == PapelProjeto.GESTOR) {
-			// Gestor pode reatribuir (ou deixar sem responsavel, enviando null)
-			tarefa.setResponsavel(novoResponsavelId == null ? null
-					: validarResponsavel(tarefa.getProjeto().getId(), novoResponsavelId));
-		} else if (responsavelMudou) {
-			throw new PermissaoNegadaExcecao("Somente o Gestor pode alterar o responsavel da tarefa.");
-		}
+		tarefa.setResponsavel(novoResponsavelId == null ? null
+				: validarResponsavel(tarefa.getProjeto().getId(), novoResponsavelId));
 
 		// prazo alterado: a rotina de atrasos volta a avaliar esta tarefa (RF-06.2)
 		if (!Objects.equals(tarefa.getPrazo(), dadosRecebidos.getPrazo())) {
@@ -118,9 +115,7 @@ public class TarefaServico {
 		tarefa.setTitulo(dadosRecebidos.getTitulo());
 		tarefa.setDescricao(dadosRecebidos.getDescricao());
 		tarefa.setPrazo(dadosRecebidos.getPrazo());
-		if (dadosRecebidos.getPrioridade() != null) {
-			tarefa.setPrioridade(dadosRecebidos.getPrioridade());
-		}
+		tarefa.setPrioridade(dadosRecebidos.getPrioridade());
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
 		if (responsavelMudou) {
 			notificarAtribuicao(tarefaSalva, usuarioLogado);

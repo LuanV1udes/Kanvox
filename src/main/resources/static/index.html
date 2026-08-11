@@ -34,7 +34,20 @@
 				<input type="password" id="entrar-senha" required autocomplete="current-password">
 			</label>
 			<button type="submit" class="botao-principal botao-largo">Entrar</button>
+			<p class="link-auxiliar"><a href="#" id="link-esqueci-senha">Esqueceu sua senha?</a></p>
 		</form>
+
+		<!-- painel de recuperacao de senha (RF-01.3): substitui as abas ao clicar em "Esqueceu sua senha?" -->
+		<div id="painel-esqueci-senha" hidden>
+			<p class="subtitulo" style="margin-top:0">Informe seu e-mail cadastrado para receber o link de redefinição.</p>
+			<form id="formulario-esqueci-senha">
+				<label>E-mail
+					<input type="email" id="esqueci-email" required autocomplete="email">
+				</label>
+				<button type="submit" class="botao-principal botao-largo">Enviar link</button>
+				<p class="link-auxiliar"><a href="#" id="link-voltar-login">Voltar para o login</a></p>
+			</form>
+		</div>
 
 		<form id="formulario-cadastrar" role="tabpanel" aria-labelledby="aba-cadastrar" hidden>
 			<label>Nome

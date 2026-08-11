@@ -53,6 +53,12 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Envio de e-mail: recuperacao de senha (RF-01.3) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- Geracao e validacao de tokens JWT (autenticacao, RNF-02) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

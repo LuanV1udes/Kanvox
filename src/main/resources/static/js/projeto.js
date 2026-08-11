@@ -218,21 +218,26 @@ function abrirDialogoDeTarefa(tarefa) {
 		preencherSelectDeResponsaveis(tarefa && tarefa.responsavel ? tarefa.responsavel.id : null);
 	}
 
-	// permissao de edicao: gestor edita tudo; membro so as proprias tarefas
-	const minhaTarefa = tarefa && tarefa.responsavel && tarefa.responsavel.id === usuario.id;
-	const podeEditar = podeEscrever() && (souGestor() || minhaTarefa);
+	// editar o CONTEUDO da tarefa (titulo/descricao/prazo/prioridade/responsavel)
+	// e exclusivo do Gestor (RF-03.2/RF-03.3) — o Membro so movimenta a propria
+	// tarefa no quadro (drag-and-drop) e colabora via comentarios/anexos (RF-07)
+	const podeEditarConteudo = souGestor() && projeto.status === 'ATIVO';
 	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-responsavel', 'tarefa-prioridade'].forEach(id => {
-		document.getElementById(id).disabled = !podeEditar;
+		document.getElementById(id).disabled = !podeEditarConteudo;
 	});
-	document.getElementById('botao-salvar-tarefa').hidden = !podeEditar;
+	document.getElementById('botao-salvar-tarefa').hidden = !podeEditarConteudo;
 	document.getElementById('botao-excluir-tarefa').hidden = !(souGestor() && !criando && projeto.status === 'ATIVO');
 
-	// devolutiva (RF-07): comentarios e anexos so existem em tarefas ja criadas
+	// devolutiva (RF-07): comentarios e anexos so existem em tarefas ja criadas.
+	// Anexar segue a mesma regra de mover a tarefa (Gestor qualquer, Membro so a propria);
+	// comentar e liberado para Gestor e Membro em qualquer tarefa do projeto.
 	document.getElementById('secao-colaboracao').hidden = criando;
 	if (!criando) {
+		const minhaTarefa = tarefa.responsavel && tarefa.responsavel.id === usuario.id;
+		const podeAnexar = podeEscrever() && (souGestor() || minhaTarefa);
 		carregarComentarios(tarefa.id);
 		carregarAnexos(tarefa.id);
-		document.getElementById('linha-de-anexo').hidden = !podeEditar;
+		document.getElementById('linha-de-anexo').hidden = !podeAnexar;
 		document.getElementById('linha-de-comentario').hidden = !podeEscrever();
 	}
 

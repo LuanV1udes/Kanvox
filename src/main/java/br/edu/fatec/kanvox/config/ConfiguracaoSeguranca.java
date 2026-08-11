@@ -34,8 +34,10 @@ public class ConfiguracaoSeguranca {
 				.csrf(csrf -> csrf.disable())
 				.sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(autorizacao -> autorizacao
-						// somente cadastro e login sao publicos (o /eu exige token)
-						.requestMatchers("/api/autenticacao/cadastro", "/api/autenticacao/login").permitAll()
+						// cadastro, login e recuperacao de senha sao publicos (o /eu exige token)
+						.requestMatchers("/api/autenticacao/cadastro", "/api/autenticacao/login",
+								"/api/autenticacao/esqueci-senha", "/api/autenticacao/redefinir-senha",
+								"/api/autenticacao/token-recuperacao/**").permitAll()
 						// arquivos estaticos do frontend (HTML/CSS/JS) — as paginas sao
 						// publicas, mas os dados que elas exibem vem da API, que exige token
 						.requestMatchers("/", "/*.html", "/css/**", "/js/**", "/favicon.ico").permitAll()

@@ -14,6 +14,7 @@ CREATE DATABASE kanvox OWNER kanvox;
 ```
 
 A aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco dedicados ao projeto — nenhuma senha pessoal fica no código). Para usar outros valores, defina as variáveis de ambiente `BANCO_URL`, `BANCO_USUARIO`, `BANCO_SENHA`.
+- **(Opcional) SMTP para recuperação de senha** — sem isso, o "Esqueceu sua senha?" ainda funciona (gera o token normalmente), só não envia o e-mail de verdade; o erro fica só no log (degradação graciosa). Para enviar de verdade, defina `SMTP_USUARIO` e `SMTP_SENHA` (no Gmail, gere uma ["senha de app"](https://myaccount.google.com/apppasswords), não a senha normal da conta).
 
 ## Como rodar a aplicação
 
@@ -43,6 +44,9 @@ Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalad
 |---|---|---|
 | POST | `/api/autenticacao/cadastro` | Cria conta — corpo: `{ "nome", "email", "senha" }` |
 | POST | `/api/autenticacao/login` | Login — corpo: `{ "email", "senha" }`; devolve `{ "token" }` |
+| POST | `/api/autenticacao/esqueci-senha` | Corpo: `{ "email" }`. Sempre responde com a mesma mensagem genérica (evita revelar quais e-mails estão cadastrados) |
+| POST | `/api/autenticacao/redefinir-senha` | Corpo: `{ "token", "novaSenha" }`. Token vem do link recebido por e-mail, válido por 1h e utilizável uma única vez |
+| GET | `/api/autenticacao/token-recuperacao/{token}` | Devolve `{ "email" }` da conta associada a um token válido — usado pela tela de redefinição para mostrar de qual conta a senha está sendo trocada |
 
 ### Projetos e membros (exigem `Authorization: Bearer <token>`)
 
@@ -72,11 +76,11 @@ Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalad
 |---|---|---|
 | GET | `/api/projetos/{id}/tarefas` | Lista as tarefas do projeto (endpoint do polling do quadro) |
 | POST | `/api/projetos/{id}/tarefas` | Cria tarefa (somente Gestor) — corpo: `{ "titulo", "descricao", "prazo": "2026-08-01", "prioridade": "BAIXA"\|"MEDIA"\|"ALTA", "responsavel": { "id": 2 } }` (prazo, prioridade e responsável opcionais) |
-| PUT | `/api/tarefas/{id}` | Edita título, descrição, prazo, prioridade e responsável (reatribuir é só Gestor) |
+| PUT | `/api/tarefas/{id}` | Edita título, descrição, prazo, prioridade e responsável (**somente Gestor** — o Membro não edita dados, nem das próprias tarefas) |
 | PUT | `/api/tarefas/{id}/status` | Move de coluna — corpo: `{ "status": "A_FAZER" \| "EM_ANDAMENTO" \| "BLOQUEADO" \| "EM_REVISAO" \| "CONCLUIDO" }`. Concluir ou reabrir uma tarefa é exclusivo do Gestor — o Membro entrega movendo para "Em Revisão" |
 | DELETE | `/api/tarefas/{id}` | Exclui tarefa (somente Gestor) |
 
-**Permissões no Kanban:** somente o Gestor cria e exclui tarefas, e só ele conclui ou reabre; Membro edita/move apenas as tarefas atribuídas a ele (até "Em Revisão"); Observador só visualiza. Projeto encerrado fica somente leitura.
+**Permissões no Kanban:** somente o Gestor cria, edita o conteúdo e exclui tarefas, e só ele conclui ou reabre; Membro **apenas movimenta** (arrasta) as tarefas atribuídas a ele entre as colunas — não edita título/descrição/prazo/prioridade/responsável, mesmo das próprias tarefas; Observador só visualiza. Projeto encerrado fica somente leitura.
 
 ### Comentários e anexos na tarefa — a devolutiva (exigem `Authorization: Bearer <token>`)
 

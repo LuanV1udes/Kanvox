@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,6 +48,35 @@ public class AutenticacaoControlador {
 	@GetMapping("/eu")
 	public Usuario usuarioLogado(@AuthenticationPrincipal Usuario usuarioLogado) {
 		return usuarioLogado;
+	}
+
+	/**
+	 * Solicita a recuperacao de senha (RF-01.3). Corpo: { "email": "..." }
+	 * Sempre responde com a mesma mensagem generica, exista ou nao o e-mail —
+	 * evita que alguem descubra quais contas estao cadastradas na plataforma.
+	 */
+	@PostMapping("/esqueci-senha")
+	public Map<String, String> esqueciSenha(@RequestBody Map<String, String> corpo) {
+		autenticacaoServico.solicitarRecuperacaoDeSenha(corpo.get("email"));
+		return Map.of("mensagem", "Se este e-mail estiver cadastrado, enviamos um link de redefinição.");
+	}
+
+	/** Redefine a senha usando o token recebido por e-mail. Corpo: { "token": "...", "novaSenha": "..." } */
+	@PostMapping("/redefinir-senha")
+	public Map<String, String> redefinirSenha(@RequestBody Map<String, String> corpo) {
+		autenticacaoServico.redefinirSenha(corpo.get("token"), corpo.get("novaSenha"));
+		return Map.of("mensagem", "Senha redefinida com sucesso. Você já pode entrar.");
+	}
+
+	/**
+	 * Consulta o e-mail associado a um token de recuperacao valido.
+	 * Usado pela tela de redefinicao para mostrar de qual conta a senha
+	 * esta sendo trocada, antes do usuario digitar a nova senha.
+	 */
+	@GetMapping("/token-recuperacao/{token}")
+	public Map<String, String> consultarTokenDeRecuperacao(@PathVariable String token) {
+		String email = autenticacaoServico.buscarEmailPeloTokenDeRecuperacao(token);
+		return Map.of("email", email);
 	}
 
 }

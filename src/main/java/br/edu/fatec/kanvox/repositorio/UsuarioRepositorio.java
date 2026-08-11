@@ -14,4 +14,8 @@ public interface UsuarioRepositorio extends JpaRepository<Usuario, Long> {
 	@Query("select u from Usuario u where u.email = :email")
 	Optional<Usuario> buscarPorEmail(@Param("email") String email);
 
+	/** Usado na redefinicao de senha (RF-01.3) para localizar o dono do token recebido por e-mail. */
+	@Query("select u from Usuario u where u.tokenRecuperacao = :token")
+	Optional<Usuario> buscarPorTokenRecuperacao(@Param("token") String token);
+
 }

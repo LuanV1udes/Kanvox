@@ -7,10 +7,13 @@ if (localStorage.getItem('kanvox_token') && usuarioLogado()) {
 	window.location.href = '/projetos.html';
 }
 
+const abas = document.querySelector('.abas');
 const abaEntrar = document.getElementById('aba-entrar');
 const abaCadastrar = document.getElementById('aba-cadastrar');
 const formularioEntrar = document.getElementById('formulario-entrar');
 const formularioCadastrar = document.getElementById('formulario-cadastrar');
+const painelEsqueciSenha = document.getElementById('painel-esqueci-senha');
+const formularioEsqueciSenha = document.getElementById('formulario-esqueci-senha');
 const mensagem = document.getElementById('mensagem');
 
 function mostrarAba(qual) {
@@ -27,6 +30,41 @@ function mostrarAba(qual) {
 
 abaEntrar.addEventListener('click', () => mostrarAba('entrar'));
 abaCadastrar.addEventListener('click', () => mostrarAba('cadastrar'));
+
+/* ---------- recuperacao de senha (RF-01.3) ---------- */
+
+document.getElementById('link-esqueci-senha').addEventListener('click', (evento) => {
+	evento.preventDefault();
+	abas.hidden = true;
+	formularioEntrar.hidden = true;
+	formularioCadastrar.hidden = true;
+	painelEsqueciSenha.hidden = false;
+	mensagem.hidden = true;
+});
+
+document.getElementById('link-voltar-login').addEventListener('click', (evento) => {
+	evento.preventDefault();
+	painelEsqueciSenha.hidden = true;
+	abas.hidden = false;
+	mostrarAba('entrar');
+});
+
+formularioEsqueciSenha.addEventListener('submit', async (evento) => {
+	evento.preventDefault();
+	try {
+		const resposta = await chamarApi('/autenticacao/esqueci-senha', {
+			method: 'POST',
+			body: { email: document.getElementById('esqueci-email').value }
+		});
+		formularioEsqueciSenha.reset();
+		painelEsqueciSenha.hidden = true;
+		abas.hidden = false;
+		mostrarAba('entrar');
+		exibirMensagem(resposta.mensagem, 'sucesso');
+	} catch (erro) {
+		mostrarErro(erro.message);
+	}
+});
 
 function mostrarErro(texto) {
 	mensagem.textContent = texto;

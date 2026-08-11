@@ -155,7 +155,7 @@ class TarefaControladorTestes {
 	}
 
 	@Test
-	void membroSoAlteraTarefasAtribuidasAEle() throws Exception {
+	void membroNuncaEditaConteudoMasMovimentaAPropriaTarefa() throws Exception {
 		long gestorId = cadastrar("Gestor Dono", "gestor.dono@teste.com");
 		long membroId = cadastrar("Membro Dono", "membro.dono@teste.com");
 		String tokenGestor = logar("gestor.dono@teste.com");
@@ -163,7 +163,7 @@ class TarefaControladorTestes {
 		long projetoId = criarProjeto(tokenGestor, "Projeto Dono da Tarefa");
 		convidarEAceitar(tokenGestor, projetoId, "membro.dono@teste.com", "MEMBRO", tokenMembro);
 
-		// tarefa do gestor: membro nao pode editar nem mover
+		// tarefa do gestor: membro nao pode editar (nem mover, pois nao e o responsavel)
 		long tarefaDoGestor = criarTarefa(tokenGestor, projetoId,
 				"{\"titulo\":\"Tarefa do gestor\",\"responsavel\":{\"id\":" + gestorId + "}}");
 		mockMvc.perform(put("/api/tarefas/" + tarefaDoGestor)
@@ -171,24 +171,34 @@ class TarefaControladorTestes {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"titulo\":\"Invasao\"}"))
 				.andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.erro").value("Um Membro so pode alterar tarefas atribuidas a ele."));
+				.andExpect(jsonPath("$.erro").value("Somente o Gestor do projeto pode executar esta operacao."));
 
-		// tarefa atribuida a ele pelo gestor: membro edita e move normalmente
+		// tarefa atribuida a ele pelo gestor: membro MOVIMENTA normalmente...
 		long tarefaDoMembro = criarTarefa(tokenGestor, projetoId,
 				"{\"titulo\":\"Tarefa do membro\",\"responsavel\":{\"id\":" + membroId + "}}");
-		mockMvc.perform(put("/api/tarefas/" + tarefaDoMembro)
-				.header("Authorization", "Bearer " + tokenMembro)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa do membro atualizada\",\"prazo\":\"2026-09-15\"}"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.titulo").value("Tarefa do membro atualizada"))
-				.andExpect(jsonPath("$.prazo").value("2026-09-15"));
 		mockMvc.perform(put("/api/tarefas/" + tarefaDoMembro + "/status")
 				.header("Authorization", "Bearer " + tokenMembro)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"status\":\"EM_ANDAMENTO\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("EM_ANDAMENTO"));
+
+		// ...mas NAO edita o conteudo dela — editar e exclusivo do Gestor, mesmo na propria tarefa
+		mockMvc.perform(put("/api/tarefas/" + tarefaDoMembro)
+				.header("Authorization", "Bearer " + tokenMembro)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tentativa de editar a propria tarefa\",\"prazo\":\"2026-09-15\"}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.erro").value("Somente o Gestor do projeto pode executar esta operacao."));
+
+		// o Gestor edita normalmente, inclusive a tarefa do membro
+		mockMvc.perform(put("/api/tarefas/" + tarefaDoMembro)
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tarefa do membro atualizada pelo gestor\",\"prazo\":\"2026-09-15\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.titulo").value("Tarefa do membro atualizada pelo gestor"))
+				.andExpect(jsonPath("$.prazo").value("2026-09-15"));
 	}
 
 	@Test
