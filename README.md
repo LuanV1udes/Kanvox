@@ -13,8 +13,25 @@ CREATE USER kanvox WITH PASSWORD 'kanvox';
 CREATE DATABASE kanvox OWNER kanvox;
 ```
 
-A aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco dedicados ao projeto — nenhuma senha pessoal fica no código). Para usar outros valores, defina as variáveis de ambiente `BANCO_URL`, `BANCO_USUARIO`, `BANCO_SENHA`.
-- **(Opcional) SMTP para recuperação de senha** — sem isso, o "Esqueceu sua senha?" ainda funciona (gera o token normalmente), só não envia o e-mail de verdade; o erro fica só no log (degradação graciosa). Para enviar de verdade, defina `SMTP_USUARIO` e `SMTP_SENHA` (no Gmail, gere uma ["senha de app"](https://myaccount.google.com/apppasswords), não a senha normal da conta).
+A aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco dedicados ao projeto — nenhuma senha pessoal fica no código).
+- **(Opcional) SMTP para recuperação de senha** — sem isso, o "Esqueceu sua senha?" ainda funciona (gera o token normalmente), só não envia o e-mail de verdade; o erro fica só no log (degradação graciosa). Para enviar de verdade, gere uma ["senha de app"](https://myaccount.google.com/apppasswords) no Gmail (não a senha normal da conta) e defina como mostrado abaixo.
+
+### Credenciais (arquivo `.env`)
+
+Nenhuma credencial fica no código (RNF-02) — todas vêm de variáveis de ambiente, lidas de um arquivo `.env` na raiz do projeto (a biblioteca `spring-dotenv` carrega ele automaticamente ao iniciar). Esse arquivo **nunca é commitado** (está no `.gitignore`).
+
+Copie o modelo e preencha com os seus valores:
+
+```
+copy .env.example .env
+```
+
+| Variável | Obrigatória? | Descrição |
+|---|---|---|
+| `BANCO_URL`, `BANCO_USUARIO`, `BANCO_SENHA` | Não | Só se usar um banco diferente do padrão `kanvox`/`kanvox` |
+| `CHAVE_JWT` | Não em dev, sim em produção | Chave de assinatura dos tokens JWT |
+| `GROQ_API_KEY` | Só para transcrição de áudio | Chave gratuita gerada em [console.groq.com](https://console.groq.com) |
+| `SMTP_USUARIO`, `SMTP_SENHA` | Só para envio real de e-mail | Conta e senha de app do Gmail |
 
 ## Como rodar a aplicação
 

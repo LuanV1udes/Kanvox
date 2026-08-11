@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Credenciais locais (RNF-02) — cada dev cria o seu a partir do .env.example
+.env
+
 ### STS ###
 .apt_generated
 .classpath
