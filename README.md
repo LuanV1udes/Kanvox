@@ -18,7 +18,7 @@ A aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco d
 
 ### Credenciais (arquivo `.env`)
 
-Nenhuma credencial fica no código (RNF-02) — todas vêm de variáveis de ambiente, lidas de um arquivo `.env` na raiz do projeto (a biblioteca `spring-dotenv` carrega ele automaticamente ao iniciar). Esse arquivo **nunca é commitado** (está no `.gitignore`).
+Nenhuma credencial fica no código (RNF-02) — todas vêm de variáveis de ambiente, lidas de um arquivo `.env` na raiz do projeto (o próprio `KanvoxAplicacao` carrega ele automaticamente ao iniciar). Esse arquivo **nunca é commitado** (está no `.gitignore`).
 
 Copie o modelo e preencha com os seus valores:
 

@@ -59,15 +59,6 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
-		<!-- Le o arquivo .env (nunca commitado) e disponibiliza as chaves como
-		     variaveis de ambiente, antes do Spring resolver os ${...} do
-		     application.properties (RNF-02: credenciais fora do codigo-fonte) -->
-		<dependency>
-			<groupId>me.paulschwarz</groupId>
-			<artifactId>spring-dotenv</artifactId>
-			<version>4.0.0</version>
-		</dependency>
-
 		<!-- Geracao e validacao de tokens JWT (autenticacao, RNF-02) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
