@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -218,8 +219,11 @@ public class RelatorioServico {
 
 	private String descreverTarefa(Tarefa tarefa) {
 		String descricao = tarefa.getTitulo();
-		if (tarefa.getResponsavel() != null) {
-			descricao += " (responsavel: " + tarefa.getResponsavel().getNome() + ")";
+		if (!tarefa.getResponsaveis().isEmpty()) {
+			String nomes = tarefa.getResponsaveis().stream()
+					.map(Usuario::getNome)
+					.collect(Collectors.joining(", "));
+			descricao += " (responsaveis: " + nomes + ")";
 		}
 		return descricao;
 	}

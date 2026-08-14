@@ -93,10 +93,10 @@ public class ComentarioServico {
 		if (!gestor.getId().equals(autor.getId())) {
 			notificacaoServico.criar(gestor, TipoNotificacao.NOVO_COMENTARIO, mensagem);
 		}
-		Usuario responsavel = tarefa.getResponsavel();
-		if (responsavel != null && !responsavel.getId().equals(autor.getId())
-				&& !responsavel.getId().equals(gestor.getId())) {
-			notificacaoServico.criar(responsavel, TipoNotificacao.NOVO_COMENTARIO, mensagem);
+		for (Usuario responsavel : tarefa.getResponsaveis()) {
+			if (!responsavel.getId().equals(autor.getId()) && !responsavel.getId().equals(gestor.getId())) {
+				notificacaoServico.criar(responsavel, TipoNotificacao.NOVO_COMENTARIO, mensagem);
+			}
 		}
 	}
 

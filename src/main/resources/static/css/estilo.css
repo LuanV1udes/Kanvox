@@ -1322,6 +1322,78 @@ dialog::backdrop {
 	margin-top: 0;
 }
 
+/* ---------- historico da tarefa: linha do tempo somente leitura ---------- */
+
+.lista-de-historico {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 200px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.item-historico {
+	padding: 0.55rem 0.7rem;
+	background: var(--cor-superficie-suave);
+	border-radius: var(--raio-pequeno);
+	font-size: 0.83rem;
+	color: var(--cor-tinta-media);
+}
+
+.item-historico .autor-do-historico {
+	font-weight: 700;
+	color: var(--cor-tinta);
+}
+
+.item-historico .quando {
+	float: right;
+	color: var(--cor-tinta-suave);
+	font-size: 0.75rem;
+}
+
+/* ---------- selecao de multiplos responsaveis (RF-03.5) ---------- */
+
+.campo-de-responsaveis {
+	margin-bottom: 1rem;
+}
+
+.campo-de-responsaveis > label {
+	margin-bottom: 0.35rem;
+}
+
+.lista-de-selecao {
+	max-height: 150px;
+	overflow-y: auto;
+	padding: 0.4rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda-forte);
+	border-radius: var(--raio-pequeno);
+}
+
+.item-selecionavel {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 0.35rem 0.4rem;
+	font-size: 0.875rem;
+	font-weight: 400;
+	color: var(--cor-tinta);
+	border-radius: 6px;
+}
+
+.item-selecionavel:hover {
+	background: var(--cor-superficie-suave);
+}
+
+.item-selecionavel input {
+	width: auto;
+	margin: 0;
+}
+
 /* ---------- gravacao de audio (RF-05.1) ---------- */
 
 .area-de-gravacao {

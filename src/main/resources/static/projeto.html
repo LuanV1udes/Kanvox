@@ -124,9 +124,10 @@
 					<option value="ALTA">Alta</option>
 				</select>
 			</label>
-			<label id="rotulo-responsavel">Responsável
-				<select id="tarefa-responsavel"></select>
-			</label>
+			<div id="rotulo-responsaveis" class="campo-de-responsaveis">
+				<label>Responsáveis</label>
+				<div class="lista-de-selecao" id="lista-de-responsaveis"></div>
+			</div>
 			<div class="acoes-do-dialogo">
 				<button type="button" class="botao-perigo" id="botao-excluir-tarefa" hidden>Excluir</button>
 				<button type="button" class="botao-secundario" id="botao-cancelar-tarefa">Cancelar</button>
@@ -151,6 +152,9 @@
 				<textarea id="novo-comentario" rows="2" maxlength="2000" placeholder="Escreva uma devolutiva…"></textarea>
 				<button type="button" class="botao-principal botao-compacto" id="botao-comentar">Enviar</button>
 			</div>
+
+			<p class="titulo-da-secao">Histórico</p>
+			<ul class="lista-de-historico" id="lista-de-historico"></ul>
 		</div>
 	</dialog>
 

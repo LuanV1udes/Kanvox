@@ -139,7 +139,7 @@ function aplicarFiltros(lista) {
 		if (texto && !tarefa.titulo.toLowerCase().includes(texto)) {
 			return false;
 		}
-		if (responsavelId && (!tarefa.responsavel || String(tarefa.responsavel.id) !== responsavelId)) {
+		if (responsavelId && !tarefa.responsaveis.some(responsavel => String(responsavel.id) === responsavelId)) {
 			return false;
 		}
 		if (prioridade && tarefa.prioridade !== prioridade) {
@@ -200,18 +200,27 @@ function renderizarQuadro() {
 	}
 }
 
+/** Resume os nomes dos responsaveis em texto curto (o cartao tem pouco espaco). */
+function nomesDosResponsaveis(tarefa) {
+	if (!tarefa.responsaveis || tarefa.responsaveis.length === 0) {
+		return 'Sem responsável';
+	}
+	const nomes = tarefa.responsaveis.map(responsavel => responsavel.nome);
+	return nomes.length <= 2 ? nomes.join(', ') : nomes.slice(0, 2).join(', ') + ' +' + (nomes.length - 2);
+}
+
 function montarCartaoDeTarefa(tarefa) {
-	// membro so pode mover as proprias tarefas, e nao pode tirar uma tarefa
-	// de Concluido — isso e decisao exclusiva do Gestor (RF-03.3 / RF-03.7)
-	const minhaTarefa = tarefa.responsavel && tarefa.responsavel.id === usuario.id;
-	const arrastavel = souGestor() || (minhaTarefa && tarefa.status !== 'CONCLUIDO');
+	// membro so pode mover tarefas em que e um dos responsaveis, e nao pode
+	// tirar uma tarefa de Concluido — isso e decisao exclusiva do Gestor (RF-03.3 / RF-03.7)
+	const souUmDosResponsaveis = tarefa.responsaveis.some(responsavel => responsavel.id === usuario.id);
+	const arrastavel = souGestor() || (souUmDosResponsaveis && tarefa.status !== 'CONCLUIDO');
 	const prazoVencido = tarefa.prazo && tarefa.status !== 'CONCLUIDO'
 		&& tarefa.prazo < new Date().toISOString().slice(0, 10);
 	return `
 		<li class="cartao-tarefa ${arrastavel ? '' : 'nao-arrastavel'}" data-id="${tarefa.id}" data-prioridade="${tarefa.prioridade}">
 			<div class="titulo-da-tarefa">${escaparHtml(tarefa.titulo)}</div>
 			<div class="detalhes-da-tarefa">
-				<span>${tarefa.responsavel ? escaparHtml(tarefa.responsavel.nome) : 'Sem responsável'}</span>
+				<span title="${escaparHtml(tarefa.responsaveis.map(r => r.nome).join(', '))}">${escaparHtml(nomesDosResponsaveis(tarefa))}</span>
 				<span class="${prazoVencido ? 'prazo-vencido' : ''}">
 					${tarefa.prazo ? formatarData(tarefa.prazo) : ''}
 				</span>
@@ -247,14 +256,29 @@ async function aoSoltarCartao(evento) {
 
 const dialogoTarefa = document.getElementById('dialogo-tarefa');
 
-function preencherSelectDeResponsaveis(selecionadoId) {
-	const select = document.getElementById('tarefa-responsavel');
+/** Lista de checkboxes com os membros que podem ser responsaveis pela tarefa (RF-03.5). */
+function preencherListaDeResponsaveis(idsSelecionados, desabilitado) {
+	const lista = document.getElementById('lista-de-responsaveis');
 	// convites pendentes (RF-01.4) nao podem ser responsaveis: so entram no quadro apos aceitar
-	const opcoes = membros
-		.filter(membro => membro.papelNoProjeto !== 'OBSERVADOR' && membro.situacao === 'ATIVO')
-		.map(membro => `<option value="${membro.usuario.id}" ${membro.usuario.id === selecionadoId ? 'selected' : ''}>
-			${escaparHtml(membro.usuario.nome)}</option>`);
-	select.innerHTML = '<option value="">Sem responsável</option>' + opcoes.join('');
+	const opcoes = membros.filter(membro => membro.papelNoProjeto !== 'OBSERVADOR' && membro.situacao === 'ATIVO');
+	if (opcoes.length === 0) {
+		lista.innerHTML = '<p class="aviso-vazio-secao">Nenhum membro disponível ainda.</p>';
+		return;
+	}
+	lista.innerHTML = opcoes.map(membro => `
+		<label class="item-selecionavel">
+			<input type="checkbox" value="${membro.usuario.id}"
+				${idsSelecionados.includes(membro.usuario.id) ? 'checked' : ''}
+				${desabilitado ? 'disabled' : ''}>
+			${escaparHtml(membro.usuario.nome)}
+		</label>
+	`).join('');
+}
+
+/** Le os ids marcados na lista de checkboxes de responsaveis. */
+function responsaveisSelecionados() {
+	return Array.from(document.querySelectorAll('#lista-de-responsaveis input:checked'))
+		.map(caixa => ({ id: Number(caixa.value) }));
 }
 
 function abrirDialogoDeTarefa(tarefa) {
@@ -266,31 +290,33 @@ function abrirDialogoDeTarefa(tarefa) {
 	document.getElementById('tarefa-prazo').value = criando ? '' : (tarefa.prazo || '');
 	document.getElementById('tarefa-prioridade').value = criando ? 'MEDIA' : tarefa.prioridade;
 
-	// o select de responsavel so aparece para o Gestor (membro cria para si, RF-03.3)
-	document.getElementById('rotulo-responsavel').hidden = !souGestor();
-	if (souGestor()) {
-		preencherSelectDeResponsaveis(tarefa && tarefa.responsavel ? tarefa.responsavel.id : null);
-	}
+	// a lista de responsaveis so aparece para o Gestor (unico papel que cria/edita tarefas)
+	document.getElementById('rotulo-responsaveis').hidden = !souGestor();
 
-	// editar o CONTEUDO da tarefa (titulo/descricao/prazo/prioridade/responsavel)
+	// editar o CONTEUDO da tarefa (titulo/descricao/prazo/prioridade/responsaveis)
 	// e exclusivo do Gestor (RF-03.2/RF-03.3) — o Membro so movimenta a propria
 	// tarefa no quadro (drag-and-drop) e colabora via comentarios/anexos (RF-07)
 	const podeEditarConteudo = souGestor() && projeto.status === 'ATIVO';
-	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-responsavel', 'tarefa-prioridade'].forEach(id => {
+	if (souGestor()) {
+		const idsAtuais = tarefa && tarefa.responsaveis ? tarefa.responsaveis.map(r => r.id) : [];
+		preencherListaDeResponsaveis(idsAtuais, !podeEditarConteudo);
+	}
+	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-prioridade'].forEach(id => {
 		document.getElementById(id).disabled = !podeEditarConteudo;
 	});
 	document.getElementById('botao-salvar-tarefa').hidden = !podeEditarConteudo;
 	document.getElementById('botao-excluir-tarefa').hidden = !(souGestor() && !criando && projeto.status === 'ATIVO');
 
-	// devolutiva (RF-07): comentarios e anexos so existem em tarefas ja criadas.
+	// devolutiva (RF-07): comentarios, anexos e historico so existem em tarefas ja criadas.
 	// Anexar segue a mesma regra de mover a tarefa (Gestor qualquer, Membro so a propria);
 	// comentar e liberado para Gestor e Membro em qualquer tarefa do projeto.
 	document.getElementById('secao-colaboracao').hidden = criando;
 	if (!criando) {
-		const minhaTarefa = tarefa.responsavel && tarefa.responsavel.id === usuario.id;
-		const podeAnexar = podeEscrever() && (souGestor() || minhaTarefa);
+		const souUmDosResponsaveis = tarefa.responsaveis.some(responsavel => responsavel.id === usuario.id);
+		const podeAnexar = podeEscrever() && (souGestor() || souUmDosResponsaveis);
 		carregarComentarios(tarefa.id);
 		carregarAnexos(tarefa.id);
+		carregarHistorico(tarefa.id);
 		document.getElementById('linha-de-anexo').hidden = !podeAnexar;
 		document.getElementById('linha-de-comentario').hidden = !podeEscrever();
 	}
@@ -310,8 +336,7 @@ document.getElementById('formulario-tarefa').addEventListener('submit', async (e
 		prioridade: document.getElementById('tarefa-prioridade').value
 	};
 	if (souGestor()) {
-		const responsavelId = document.getElementById('tarefa-responsavel').value;
-		corpo.responsavel = responsavelId ? { id: Number(responsavelId) } : null;
+		corpo.responsaveis = responsaveisSelecionados();
 	}
 	try {
 		if (tarefaEmEdicao) {
@@ -492,6 +517,27 @@ document.getElementById('botao-enviar-anexo').addEventListener('click', async ()
 		exibirMensagem(erro.message, 'erro');
 	}
 });
+
+/** Linha do tempo da tarefa: criacao, edicoes e mudancas de coluna — somente leitura. */
+async function carregarHistorico(tarefaId) {
+	try {
+		const historico = await chamarApi('/tarefas/' + tarefaId + '/historico');
+		const lista = document.getElementById('lista-de-historico');
+		if (historico.length === 0) {
+			lista.innerHTML = '<p class="aviso-vazio-secao">Nenhuma atividade registrada ainda.</p>';
+			return;
+		}
+		lista.innerHTML = historico.map(evento => `
+			<li class="item-historico">
+				<span class="autor-do-historico">${escaparHtml(evento.autor.nome)}</span>
+				${escaparHtml(evento.descricao)}
+				<span class="quando">${formatarDataEHora(evento.criadoEm)}</span>
+			</li>
+		`).join('');
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
 
 /* ---------- membros (RF-01.4 / RF-01.5) ---------- */
 

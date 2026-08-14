@@ -94,10 +94,10 @@ class TarefaControladorTestes {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Configurar banco\",\"descricao\":\"Criar tabelas\",\"prazo\":\"2026-08-01\",\"responsavel\":{\"id\":" + membroId + "}}"))
+				.content("{\"titulo\":\"Configurar banco\",\"descricao\":\"Criar tabelas\",\"prazo\":\"2026-08-01\",\"responsaveis\":[{\"id\":" + membroId + "}]}"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.status").value("A_FAZER"))
-				.andExpect(jsonPath("$.responsavel.email").value("membro.kanban@teste.com"));
+				.andExpect(jsonPath("$.responsaveis[0].email").value("membro.kanban@teste.com"));
 
 		// o polling do quadro lista a tarefa (RF-03.6)
 		mockMvc.perform(get("/api/projetos/" + projetoId + "/tarefas")
@@ -165,7 +165,7 @@ class TarefaControladorTestes {
 
 		// tarefa do gestor: membro nao pode editar (nem mover, pois nao e o responsavel)
 		long tarefaDoGestor = criarTarefa(tokenGestor, projetoId,
-				"{\"titulo\":\"Tarefa do gestor\",\"responsavel\":{\"id\":" + gestorId + "}}");
+				"{\"titulo\":\"Tarefa do gestor\",\"responsaveis\":[{\"id\":" + gestorId + "}]}");
 		mockMvc.perform(put("/api/tarefas/" + tarefaDoGestor)
 				.header("Authorization", "Bearer " + tokenMembro)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -175,7 +175,7 @@ class TarefaControladorTestes {
 
 		// tarefa atribuida a ele pelo gestor: membro MOVIMENTA normalmente...
 		long tarefaDoMembro = criarTarefa(tokenGestor, projetoId,
-				"{\"titulo\":\"Tarefa do membro\",\"responsavel\":{\"id\":" + membroId + "}}");
+				"{\"titulo\":\"Tarefa do membro\",\"responsaveis\":[{\"id\":" + membroId + "}]}");
 		mockMvc.perform(put("/api/tarefas/" + tarefaDoMembro + "/status")
 				.header("Authorization", "Bearer " + tokenMembro)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -227,7 +227,7 @@ class TarefaControladorTestes {
 
 		// nem mesmo a propria tarefa o membro pode excluir (RF-03.2)
 		long tarefaDoMembro = criarTarefa(tokenGestor, projetoId,
-				"{\"titulo\":\"Tarefa a excluir\",\"responsavel\":{\"id\":" + membroId + "}}");
+				"{\"titulo\":\"Tarefa a excluir\",\"responsaveis\":[{\"id\":" + membroId + "}]}");
 		mockMvc.perform(delete("/api/tarefas/" + tarefaDoMembro)
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isForbidden());
@@ -250,7 +250,7 @@ class TarefaControladorTestes {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa orfã\",\"responsavel\":{\"id\":" + usuarioDeForaId + "}}"))
+				.content("{\"titulo\":\"Tarefa orfã\",\"responsaveis\":[{\"id\":" + usuarioDeForaId + "}]}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.erro").value("O responsavel precisa ser membro ativo do projeto."));
 	}
@@ -264,7 +264,7 @@ class TarefaControladorTestes {
 		long projetoId = criarProjeto(tokenGestor, "Projeto Revisao");
 		convidarEAceitar(tokenGestor, projetoId, "membro.revisa@teste.com", "MEMBRO", tokenMembro);
 		long tarefaId = criarTarefa(tokenGestor, projetoId,
-				"{\"titulo\":\"Tarefa para entregar\",\"responsavel\":{\"id\":" + membroId + "}}");
+				"{\"titulo\":\"Tarefa para entregar\",\"responsaveis\":[{\"id\":" + membroId + "}]}");
 
 		// o membro entrega: move a propria tarefa para Em Revisao (RF-03.7)
 		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
@@ -353,6 +353,82 @@ class TarefaControladorTestes {
 				.content("{\"status\":\"CONCLUIDO\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.erro").value("O projeto esta encerrado: as tarefas nao podem mais ser alteradas."));
+	}
+
+	@Test
+	void tarefaComVariosResponsaveisQualquerUmDelesMovimenta() throws Exception {
+		cadastrar("Gestor Varios", "gestor.varios@teste.com");
+		long membro1Id = cadastrar("Membro Um", "membro1.varios@teste.com");
+		long membro2Id = cadastrar("Membro Dois", "membro2.varios@teste.com");
+		String tokenGestor = logar("gestor.varios@teste.com");
+		String tokenMembro1 = logar("membro1.varios@teste.com");
+		String tokenMembro2 = logar("membro2.varios@teste.com");
+		long projetoId = criarProjeto(tokenGestor, "Projeto Varios Responsaveis");
+		convidarEAceitar(tokenGestor, projetoId, "membro1.varios@teste.com", "MEMBRO", tokenMembro1);
+		convidarEAceitar(tokenGestor, projetoId, "membro2.varios@teste.com", "MEMBRO", tokenMembro2);
+
+		String resposta = mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tarefa em dupla\",\"responsaveis\":[{\"id\":" + membro1Id + "},{\"id\":" + membro2Id + "}]}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.responsaveis.length()").value(2))
+				.andReturn().getResponse().getContentAsString();
+		long tarefaId = ((Number) JsonPath.read(resposta, "$.id")).longValue();
+
+		// qualquer um dos dois responsaveis pode movimentar a tarefa (nao so o primeiro)
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro2)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"EM_ANDAMENTO\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("EM_ANDAMENTO"));
+
+		// um terceiro membro, de fora da tarefa, continua sem poder mexer nela
+		cadastrar("Membro De Fora", "fora.varios@teste.com");
+		String tokenDeFora = logar("fora.varios@teste.com");
+		convidarEAceitar(tokenGestor, projetoId, "fora.varios@teste.com", "MEMBRO", tokenDeFora);
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenDeFora)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"BLOQUEADO\"}"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void editarTrocaAListaDeResponsaveisENotificaSomenteOsRecemAdicionados() throws Exception {
+		cadastrar("Gestor Troca", "gestor.troca@teste.com");
+		long membro1Id = cadastrar("Membro Troca Um", "membro1.troca@teste.com");
+		long membro2Id = cadastrar("Membro Troca Dois", "membro2.troca@teste.com");
+		String tokenGestor = logar("gestor.troca@teste.com");
+		String tokenMembro1 = logar("membro1.troca@teste.com");
+		String tokenMembro2 = logar("membro2.troca@teste.com");
+		long projetoId = criarProjeto(tokenGestor, "Projeto Troca Responsaveis");
+		convidarEAceitar(tokenGestor, projetoId, "membro1.troca@teste.com", "MEMBRO", tokenMembro1);
+		convidarEAceitar(tokenGestor, projetoId, "membro2.troca@teste.com", "MEMBRO", tokenMembro2);
+		long tarefaId = criarTarefa(tokenGestor, projetoId,
+				"{\"titulo\":\"Tarefa a trocar\",\"responsaveis\":[{\"id\":" + membro1Id + "}]}");
+
+		// troca a lista inteira: sai o membro1, entra o membro2
+		mockMvc.perform(put("/api/tarefas/" + tarefaId)
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"titulo\":\"Tarefa a trocar\",\"responsaveis\":[{\"id\":" + membro2Id + "}]}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.responsaveis.length()").value(1))
+				.andExpect(jsonPath("$.responsaveis[0].email").value("membro2.troca@teste.com"));
+
+		// o membro1 (removido) nao movimenta mais; o membro2 (adicionado agora) movimenta
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro1)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"EM_ANDAMENTO\"}"))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(put("/api/tarefas/" + tarefaId + "/status")
+				.header("Authorization", "Bearer " + tokenMembro2)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"status\":\"EM_ANDAMENTO\"}"))
+				.andExpect(status().isOk());
 	}
 
 }

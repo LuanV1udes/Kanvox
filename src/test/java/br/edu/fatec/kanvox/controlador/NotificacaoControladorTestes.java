@@ -83,7 +83,7 @@ class NotificacaoControladorTestes {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa delegada\",\"responsavel\":{\"id\":" + membroId + "}}"))
+				.content("{\"titulo\":\"Tarefa delegada\",\"responsaveis\":[{\"id\":" + membroId + "}]}"))
 				.andExpect(status().isCreated());
 
 		// o membro recebeu a notificacao de atribuicao (RF-06.3) — a mais recente da lista
@@ -112,7 +112,7 @@ class NotificacaoControladorTestes {
 		String resposta = mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa travada\",\"responsavel\":{\"id\":" + membroId + "}}"))
+				.content("{\"titulo\":\"Tarefa travada\",\"responsaveis\":[{\"id\":" + membroId + "}]}"))
 				.andReturn().getResponse().getContentAsString();
 		long tarefaId = ((Number) JsonPath.read(resposta, "$.id")).longValue();
 
@@ -140,7 +140,7 @@ class NotificacaoControladorTestes {
 		mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa notificada\",\"responsavel\":{\"id\":" + membroId + "}}"))
+				.content("{\"titulo\":\"Tarefa notificada\",\"responsaveis\":[{\"id\":" + membroId + "}]}"))
 				.andExpect(status().isCreated());
 
 		String notificacoes = mockMvc.perform(get("/api/notificacoes")

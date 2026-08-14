@@ -68,7 +68,7 @@ class ComentarioControladorTestes {
 		String resposta = mockMvc.perform(post("/api/projetos/" + projetoId + "/tarefas")
 				.header("Authorization", "Bearer " + tokenGestor)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"titulo\":\"Tarefa comentada\",\"responsavel\":{\"id\":" + responsavelId + "}}"))
+				.content("{\"titulo\":\"Tarefa comentada\",\"responsaveis\":[{\"id\":" + responsavelId + "}]}"))
 				.andReturn().getResponse().getContentAsString();
 		return ((Number) JsonPath.read(resposta, "$.id")).longValue();
 	}

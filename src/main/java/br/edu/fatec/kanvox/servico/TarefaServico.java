@@ -1,8 +1,12 @@
 package br.edu.fatec.kanvox.servico;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +28,10 @@ import br.edu.fatec.kanvox.repositorio.TarefaRepositorio;
  * - Gestor: cria, edita o conteudo, move e exclui qualquer tarefa do projeto (RF-03.2)
  * - Membro: apenas movimenta (drag-and-drop / mudanca de status) as tarefas
  *   atribuidas a ele (RF-03.3) — nao cria nem edita titulo/descricao/prazo/
- *   prioridade/responsavel; colabora via comentarios e anexos (RF-07)
+ *   prioridade/responsaveis; colabora via comentarios e anexos (RF-07)
  * - Observador: somente leitura
+ * Toda acao relevante (criar, editar, mover de coluna) fica registrada na
+ * linha do tempo da tarefa via HistoricoTarefaServico.
  */
 @Service
 @Transactional
@@ -35,15 +41,18 @@ public class TarefaServico {
 	private final MembroProjetoRepositorio membroProjetoRepositorio;
 	private final ProjetoServico projetoServico;
 	private final NotificacaoServico notificacaoServico;
+	private final HistoricoTarefaServico historicoTarefaServico;
 
 	public TarefaServico(TarefaRepositorio tarefaRepositorio,
 			MembroProjetoRepositorio membroProjetoRepositorio,
 			ProjetoServico projetoServico,
-			NotificacaoServico notificacaoServico) {
+			NotificacaoServico notificacaoServico,
+			HistoricoTarefaServico historicoTarefaServico) {
 		this.tarefaRepositorio = tarefaRepositorio;
 		this.membroProjetoRepositorio = membroProjetoRepositorio;
 		this.projetoServico = projetoServico;
 		this.notificacaoServico = notificacaoServico;
+		this.historicoTarefaServico = historicoTarefaServico;
 	}
 
 	/**
@@ -57,7 +66,7 @@ public class TarefaServico {
 
 	/**
 	 * Cria uma tarefa — operacao exclusiva do Gestor (RF-03.2), que pode
-	 * atribui-la a qualquer membro ativo ou deixa-la sem responsavel.
+	 * atribui-la a varios membros ativos ou deixa-la sem responsavel.
 	 * Toda tarefa nasce na coluna "A Fazer" (RF-03.1).
 	 */
 	public Tarefa criar(Usuario usuarioLogado, Long projetoId, Tarefa dadosRecebidos) {
@@ -78,15 +87,15 @@ public class TarefaServico {
 		if (dadosRecebidos.getPrioridade() != null) {
 			novaTarefa.setPrioridade(dadosRecebidos.getPrioridade());
 		}
-		novaTarefa.setResponsavel(dadosRecebidos.getResponsavel() == null ? null
-				: validarResponsavel(projetoId, dadosRecebidos.getResponsavel().getId()));
+		novaTarefa.setResponsaveis(validarResponsaveis(projetoId, dadosRecebidos.getResponsaveis()));
 		Tarefa tarefaSalva = tarefaRepositorio.save(novaTarefa);
-		notificarAtribuicao(tarefaSalva, usuarioLogado);
+		notificarAtribuicao(tarefaSalva, tarefaSalva.getResponsaveis(), usuarioLogado);
+		historicoTarefaServico.registrar(tarefaSalva, usuarioLogado, "Criou a tarefa.");
 		return tarefaSalva;
 	}
 
 	/**
-	 * Edita titulo, descricao, prazo, prioridade e responsavel da tarefa.
+	 * Edita titulo, descricao, prazo, prioridade e responsaveis da tarefa.
 	 * Editar o CONTEUDO da tarefa e exclusivo do Gestor (RF-03.2) — o Membro
 	 * so movimenta a propria tarefa entre colunas (ver moverStatus) e
 	 * colabora via comentarios/anexos (RF-07), nunca edita os dados dela.
@@ -99,13 +108,30 @@ public class TarefaServico {
 			throw new RegraDeNegocioExcecao("O titulo da tarefa e obrigatorio.");
 		}
 
-		Long novoResponsavelId = dadosRecebidos.getResponsavel() == null ? null
-				: dadosRecebidos.getResponsavel().getId();
-		Long responsavelAtualId = tarefa.getResponsavel() == null ? null
-				: tarefa.getResponsavel().getId();
-		boolean responsavelMudou = novoResponsavelId != null && !novoResponsavelId.equals(responsavelAtualId);
-		tarefa.setResponsavel(novoResponsavelId == null ? null
-				: validarResponsavel(tarefa.getProjeto().getId(), novoResponsavelId));
+		List<Usuario> novosResponsaveis = validarResponsaveis(tarefa.getProjeto().getId(),
+				dadosRecebidos.getResponsaveis());
+		List<Usuario> responsaveisAdicionados = novosResponsaveis.stream()
+				.filter(usuario -> tarefa.getResponsaveis().stream()
+						.noneMatch(atual -> atual.getId().equals(usuario.getId())))
+				.toList();
+
+		// monta o resumo do que mudou ANTES de sobrescrever os valores atuais (historico)
+		List<String> camposAlterados = new ArrayList<>();
+		if (!Objects.equals(tarefa.getTitulo(), dadosRecebidos.getTitulo())) {
+			camposAlterados.add("título");
+		}
+		if (!Objects.equals(tarefa.getDescricao(), dadosRecebidos.getDescricao())) {
+			camposAlterados.add("descrição");
+		}
+		if (!Objects.equals(tarefa.getPrazo(), dadosRecebidos.getPrazo())) {
+			camposAlterados.add("prazo");
+		}
+		if (tarefa.getPrioridade() != dadosRecebidos.getPrioridade()) {
+			camposAlterados.add("prioridade");
+		}
+		if (!mesmosResponsaveis(tarefa.getResponsaveis(), novosResponsaveis)) {
+			camposAlterados.add("responsáveis");
+		}
 
 		// prazo alterado: a rotina de atrasos volta a avaliar esta tarefa (RF-06.2)
 		if (!Objects.equals(tarefa.getPrazo(), dadosRecebidos.getPrazo())) {
@@ -116,9 +142,15 @@ public class TarefaServico {
 		tarefa.setDescricao(dadosRecebidos.getDescricao());
 		tarefa.setPrazo(dadosRecebidos.getPrazo());
 		tarefa.setPrioridade(dadosRecebidos.getPrioridade());
+		tarefa.setResponsaveis(novosResponsaveis);
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
-		if (responsavelMudou) {
-			notificarAtribuicao(tarefaSalva, usuarioLogado);
+
+		if (!responsaveisAdicionados.isEmpty()) {
+			notificarAtribuicao(tarefaSalva, responsaveisAdicionados, usuarioLogado);
+		}
+		if (!camposAlterados.isEmpty()) {
+			historicoTarefaServico.registrar(tarefaSalva, usuarioLogado,
+					"Editou " + String.join(", ", camposAlterados) + ".");
 		}
 		return tarefaSalva;
 	}
@@ -129,6 +161,7 @@ public class TarefaServico {
 		MembroProjeto vinculo = validarPodeAlterar(tarefa, usuarioLogado);
 		validarProjetoAtivo(tarefa.getProjeto());
 
+		StatusTarefa statusAnterior = tarefa.getStatus();
 		StatusTarefa novoStatus = converterStatus(status);
 
 		// RF-03.7: concluir e desfazer a conclusao sao decisoes do Gestor —
@@ -138,19 +171,19 @@ public class TarefaServico {
 				throw new PermissaoNegadaExcecao(
 						"Somente o Gestor conclui tarefas. Mova para 'Em Revisao' e aguarde a avaliacao.");
 			}
-			if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
+			if (statusAnterior == StatusTarefa.CONCLUIDO) {
 				throw new PermissaoNegadaExcecao("Somente o Gestor pode reabrir uma tarefa concluida.");
 			}
 		}
 
 		boolean acabouDeSerBloqueada = novoStatus == StatusTarefa.BLOQUEADO
-				&& tarefa.getStatus() != StatusTarefa.BLOQUEADO;
+				&& statusAnterior != StatusTarefa.BLOQUEADO;
 		boolean acabouDeEntrarEmRevisao = novoStatus == StatusTarefa.EM_REVISAO
-				&& tarefa.getStatus() != StatusTarefa.EM_REVISAO;
+				&& statusAnterior != StatusTarefa.EM_REVISAO;
 
 		// registra quando a tarefa foi concluida (usado pelo relatorio, RF-04.2);
 		// se ela voltar para outra coluna, o registro e apagado
-		if (novoStatus == StatusTarefa.CONCLUIDO && tarefa.getStatus() != StatusTarefa.CONCLUIDO) {
+		if (novoStatus == StatusTarefa.CONCLUIDO && statusAnterior != StatusTarefa.CONCLUIDO) {
 			tarefa.setConcluidaEm(LocalDateTime.now());
 		} else if (novoStatus != StatusTarefa.CONCLUIDO) {
 			tarefa.setConcluidaEm(null);
@@ -158,6 +191,10 @@ public class TarefaServico {
 
 		tarefa.setStatus(novoStatus);
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
+		if (statusAnterior != novoStatus) {
+			historicoTarefaServico.registrar(tarefaSalva, usuarioLogado,
+					"Moveu de \"" + rotuloDoStatus(statusAnterior) + "\" para \"" + rotuloDoStatus(novoStatus) + "\".");
+		}
 		if (acabouDeSerBloqueada) {
 			notificarBloqueio(tarefaSalva, usuarioLogado);
 		}
@@ -176,18 +213,21 @@ public class TarefaServico {
 			throw new PermissaoNegadaExcecao("Somente o Gestor do projeto pode excluir tarefas.");
 		}
 		validarProjetoAtivo(tarefa.getProjeto());
+		// remove o historico antes, senao a chave estrangeira (tarefa_id) impede a exclusao
+		historicoTarefaServico.excluirDaTarefa(tarefaId);
 		tarefaRepositorio.delete(tarefa);
 	}
 
 	// ---------- notificacoes disparadas pelas acoes do quadro (RF-06) ----------
 
-	/** RF-06.3: avisa o responsavel quando uma tarefa e atribuida a ele por outra pessoa. */
-	private void notificarAtribuicao(Tarefa tarefa, Usuario quemAtribuiu) {
-		Usuario responsavel = tarefa.getResponsavel();
-		if (responsavel != null && !responsavel.getId().equals(quemAtribuiu.getId())) {
-			notificacaoServico.criar(responsavel, TipoNotificacao.TAREFA_ATRIBUIDA,
-					"Voce foi atribuido a tarefa '" + tarefa.getTitulo() + "' do projeto '"
-							+ tarefa.getProjeto().getNome() + "'.");
+	/** RF-06.3: avisa os responsaveis recem-atribuidos a tarefa por outra pessoa. */
+	private void notificarAtribuicao(Tarefa tarefa, List<Usuario> responsaveisAtribuidos, Usuario quemAtribuiu) {
+		for (Usuario responsavel : responsaveisAtribuidos) {
+			if (!responsavel.getId().equals(quemAtribuiu.getId())) {
+				notificacaoServico.criar(responsavel, TipoNotificacao.TAREFA_ATRIBUIDA,
+						"Voce foi atribuido a tarefa '" + tarefa.getTitulo() + "' do projeto '"
+								+ tarefa.getProjeto().getNome() + "'.");
+			}
 		}
 	}
 
@@ -228,12 +268,33 @@ public class TarefaServico {
 		if (vinculo.getPapelNoProjeto() == PapelProjeto.OBSERVADOR) {
 			throw new PermissaoNegadaExcecao("Observador tem acesso somente leitura ao projeto.");
 		}
-		boolean eOResponsavel = tarefa.getResponsavel() != null
-				&& tarefa.getResponsavel().getId().equals(usuario.getId());
-		if (vinculo.getPapelNoProjeto() == PapelProjeto.MEMBRO && !eOResponsavel) {
+		boolean souUmDosResponsaveis = tarefa.getResponsaveis().stream()
+				.anyMatch(responsavel -> responsavel.getId().equals(usuario.getId()));
+		if (vinculo.getPapelNoProjeto() == PapelProjeto.MEMBRO && !souUmDosResponsaveis) {
 			throw new PermissaoNegadaExcecao("Um Membro so pode alterar tarefas atribuidas a ele.");
 		}
 		return vinculo;
+	}
+
+	/**
+	 * Valida e resolve a lista de responsaveis recebida (nula/vazia = tarefa sem
+	 * responsavel). Ids repetidos sao ignorados; a ordem de chegada e preservada.
+	 */
+	private List<Usuario> validarResponsaveis(Long projetoId, List<Usuario> recebidos) {
+		if (recebidos == null || recebidos.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Set<Long> idsUnicos = new LinkedHashSet<>();
+		for (Usuario usuario : recebidos) {
+			if (usuario != null && usuario.getId() != null) {
+				idsUnicos.add(usuario.getId());
+			}
+		}
+		List<Usuario> responsaveis = new ArrayList<>();
+		for (Long id : idsUnicos) {
+			responsaveis.add(validarResponsavel(projetoId, id));
+		}
+		return responsaveis;
 	}
 
 	/** O responsavel precisa ser membro ativo do projeto e nao pode ser Observador. */
@@ -246,6 +307,13 @@ public class TarefaServico {
 			throw new RegraDeNegocioExcecao("Um Observador nao pode ser responsavel por tarefas.");
 		}
 		return vinculoDoResponsavel.getUsuario();
+	}
+
+	/** Compara duas listas de responsaveis pelo conjunto de ids, ignorando a ordem. */
+	private boolean mesmosResponsaveis(List<Usuario> atuais, List<Usuario> novos) {
+		Set<Long> idsAtuais = atuais.stream().map(Usuario::getId).collect(Collectors.toSet());
+		Set<Long> idsNovos = novos.stream().map(Usuario::getId).collect(Collectors.toSet());
+		return idsAtuais.equals(idsNovos);
 	}
 
 	private void validarProjetoAtivo(Projeto projeto) {
@@ -261,6 +329,16 @@ public class TarefaServico {
 			throw new RegraDeNegocioExcecao(
 					"Status invalido. Use A_FAZER, EM_ANDAMENTO, BLOQUEADO, EM_REVISAO ou CONCLUIDO.");
 		}
+	}
+
+	private String rotuloDoStatus(StatusTarefa status) {
+		return switch (status) {
+			case A_FAZER -> "A Fazer";
+			case EM_ANDAMENTO -> "Em Andamento";
+			case BLOQUEADO -> "Bloqueado";
+			case EM_REVISAO -> "Em Revisão";
+			case CONCLUIDO -> "Concluído";
+		};
 	}
 
 }

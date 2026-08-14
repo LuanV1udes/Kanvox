@@ -2,6 +2,8 @@ package br.edu.fatec.kanvox.modelo;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -13,12 +15,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 /**
  * Tarefa do quadro Kanban (RF-03).
- * Cada tarefa tem um unico responsavel (RF-03.5) e um status
+ * Cada tarefa pode ter varios responsaveis (RF-03.5) e um status
  * que corresponde a coluna do quadro (RF-03.1).
  */
 @Entity
@@ -42,9 +46,13 @@ public class Tarefa {
 	@Column(length = 2000)
 	private String descricao;
 
-	@ManyToOne
-	@JoinColumn(name = "responsavel_id")
-	private Usuario responsavel;
+	// Tabela de juncao: uma tarefa pode ter varios responsaveis e um usuario
+	// pode ser responsavel por varias tarefas ao mesmo tempo (RF-03.5).
+	@ManyToMany
+	@JoinTable(name = "tarefa_responsavel",
+			joinColumns = @JoinColumn(name = "tarefa_id"),
+			inverseJoinColumns = @JoinColumn(name = "usuario_id"))
+	private List<Usuario> responsaveis = new ArrayList<>();
 
 	private LocalDate prazo;
 
@@ -102,12 +110,12 @@ public class Tarefa {
 		this.descricao = descricao;
 	}
 
-	public Usuario getResponsavel() {
-		return responsavel;
+	public List<Usuario> getResponsaveis() {
+		return responsaveis;
 	}
 
-	public void setResponsavel(Usuario responsavel) {
-		this.responsavel = responsavel;
+	public void setResponsaveis(List<Usuario> responsaveis) {
+		this.responsaveis = responsaveis;
 	}
 
 	public LocalDate getPrazo() {

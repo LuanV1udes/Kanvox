@@ -99,7 +99,7 @@ public class ProjetoServico {
 
 		Map<String, Object> visaoGeral = new HashMap<>();
 		visaoGeral.put("projeto", projeto);
-		// inclui convites pendentes (RF-01.4) — quem monta o select de responsavel
+		// inclui convites pendentes (RF-01.4) — quem monta a lista de responsaveis
 		// no frontend filtra apenas os membros com situacao ATIVO
 		visaoGeral.put("membros", membroProjetoRepositorio.buscarMembrosEConvites(projetoId));
 		visaoGeral.put("totalTarefas", totalDeTarefas);
