@@ -43,6 +43,10 @@ Abra **http://localhost:8080** no navegador — a tela de login/cadastro aparece
 
 **Telas:** login/cadastro (`index.html`) → lista de projetos (`projetos.html`) → página do projeto (`projeto.html`) com o quadro Kanban (drag-and-drop, atualizado por polling a cada 5s), membros, notificações (sino no topo) e relatórios com narração por voz (gravação pelo microfone → transcrição → revisão → salvar).
 
+## Como colocar em produção (VPS + HTTPS)
+
+Guia completo passo a passo — criação da VPS gratuita na Oracle Cloud, DNS, systemd e Caddy (HTTPS automático) — em [`deploy/GUIA_DEPLOY.md`](deploy/GUIA_DEPLOY.md).
+
 ## Como rodar os testes
 
 ```

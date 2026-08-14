@@ -1,0 +1,12 @@
+# ============================================================
+# Caddyfile — proxy reverso do Kanvox com HTTPS automatico
+#
+# O Caddy busca e renova o certificado Let's Encrypt sozinho,
+# sem nenhuma configuracao extra (RNF-02: toda comunicacao via
+# HTTPS/TLS). Substitua SEU_DOMINIO_AQUI pelo dominio real antes
+# de copiar este arquivo para a VPS.
+# ============================================================
+
+SEU_DOMINIO_AQUI {
+	reverse_proxy localhost:8080
+}

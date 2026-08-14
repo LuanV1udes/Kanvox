@@ -1,0 +1,28 @@
+# ============================================================
+# kanvox.service — servico systemd que mantem o Kanvox rodando
+# na VPS, reiniciando sozinho se cair e subindo automaticamente
+# com o servidor (RNF-03: disponibilidade).
+#
+# Instalacao (como root, na VPS):
+#   cp kanvox.service /etc/systemd/system/kanvox.service
+#   systemctl daemon-reload
+#   systemctl enable --now kanvox
+# ============================================================
+
+[Unit]
+Description=Kanvox - sistema de gestao de projetos (TG Fatec Ourinhos)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=kanvox
+WorkingDirectory=/opt/kanvox
+# WorkingDirectory precisa ser /opt/kanvox: e de la que o KanvoxAplicacao
+# le o arquivo .env (caminho relativo ao diretorio de trabalho do processo)
+ExecStart=/usr/bin/java -jar /opt/kanvox/kanvox.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
