@@ -30,9 +30,26 @@
 					<div class="linha-de-progresso">
 						<div class="progresso"><div id="barra-de-progresso" style="width:0%"></div></div>
 						<span class="texto-suave" id="resumo-do-progresso"></span>
+						<span class="selo selo-perigo" id="indicador-bloqueadas" hidden></span>
+						<span class="selo selo-aviso" id="indicador-atrasadas" hidden></span>
 						<div class="espacador"></div>
 						<button type="button" class="botao-principal botao-compacto" id="botao-nova-tarefa" hidden>Nova tarefa</button>
 					</div>
+				</div>
+
+				<!-- filtro do quadro: nao mexe no backend, so no que e exibido (RF-03) -->
+				<div class="linha-de-filtros">
+					<input type="search" id="filtro-busca" placeholder="Buscar por título…">
+					<select id="filtro-responsavel">
+						<option value="">Todos os responsáveis</option>
+					</select>
+					<select id="filtro-prioridade">
+						<option value="">Todas as prioridades</option>
+						<option value="ALTA">Alta</option>
+						<option value="MEDIA">Média</option>
+						<option value="BAIXA">Baixa</option>
+					</select>
+					<button type="button" class="botao-texto" id="botao-limpar-filtros">Limpar filtros</button>
 				</div>
 
 				<div class="rolagem-do-quadro">

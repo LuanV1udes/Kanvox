@@ -101,6 +101,34 @@ public class AutenticacaoServico {
 		usuarioRepositorio.save(usuario);
 	}
 
+	/** Edita o nome do usuario logado. O e-mail nao pode ser alterado por aqui (e o identificador de login). */
+	public Usuario editarPerfil(Usuario usuarioLogado, String novoNome) {
+		if (estaVazio(novoNome)) {
+			throw new RegraDeNegocioExcecao("O nome e obrigatorio.");
+		}
+		Usuario usuario = buscarUsuarioPorId(usuarioLogado.getId());
+		usuario.setNome(novoNome.trim());
+		return usuarioRepositorio.save(usuario);
+	}
+
+	/** Troca a senha do usuario logado, exigindo a senha atual como confirmacao (RNF-02). */
+	public void alterarSenha(Usuario usuarioLogado, String senhaAtual, String novaSenha) {
+		Usuario usuario = buscarUsuarioPorId(usuarioLogado.getId());
+		if (senhaAtual == null || !codificadorDeSenha.matches(senhaAtual, usuario.getSenha())) {
+			throw new RegraDeNegocioExcecao("Senha atual incorreta.");
+		}
+		if (estaVazio(novaSenha) || novaSenha.length() < 6) {
+			throw new RegraDeNegocioExcecao("A nova senha deve ter pelo menos 6 caracteres.");
+		}
+		usuario.setSenha(codificadorDeSenha.encode(novaSenha));
+		usuarioRepositorio.save(usuario);
+	}
+
+	private Usuario buscarUsuarioPorId(Long id) {
+		return usuarioRepositorio.findById(id)
+				.orElseThrow(() -> new RegraDeNegocioExcecao("Usuario nao encontrado."));
+	}
+
 	private Usuario buscarUsuarioComTokenValido(String token) {
 		Usuario usuario = usuarioRepositorio.buscarPorTokenRecuperacao(token == null ? "" : token)
 				.orElseThrow(() -> new RegraDeNegocioExcecao("Link de redefinicao invalido ou ja utilizado."));

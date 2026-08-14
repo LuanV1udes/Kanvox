@@ -1,5 +1,7 @@
 package br.edu.fatec.kanvox.servico;
 
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -7,6 +9,14 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.lowagie.text.Chunk;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Font;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfWriter;
 
 import br.edu.fatec.kanvox.modelo.Projeto;
 import br.edu.fatec.kanvox.modelo.Relatorio;
@@ -88,6 +98,51 @@ public class RelatorioServico {
 	public List<Relatorio> listar(Usuario usuarioLogado, Long projetoId) {
 		projetoServico.buscarVinculoObrigatorio(projetoId, usuarioLogado);
 		return relatorioRepositorio.buscarPorProjeto(projetoId);
+	}
+
+	/**
+	 * Gera o PDF de um relatorio ja existente (RF-04.4 — exportacao desejavel).
+	 * Qualquer membro ativo do projeto pode baixar, a mesma regra de listar().
+	 */
+	public byte[] gerarPdf(Usuario usuarioLogado, Long relatorioId) {
+		Relatorio relatorio = relatorioRepositorio.findById(relatorioId)
+				.orElseThrow(() -> new RegraDeNegocioExcecao("Relatorio nao encontrado."));
+		projetoServico.buscarVinculoObrigatorio(relatorio.getProjeto().getId(), usuarioLogado);
+		return montarPdf(relatorio);
+	}
+
+	private byte[] montarPdf(Relatorio relatorio) {
+		Font fonteTitulo = new Font(Font.HELVETICA, 14, Font.BOLD);
+		Font fonteSubtitulo = new Font(Font.HELVETICA, 9, Font.NORMAL, Color.GRAY);
+		Font fonteCorpo = new Font(Font.HELVETICA, 10);
+		Font fonteNegrito = new Font(Font.HELVETICA, 10, Font.BOLD);
+
+		Document documento = new Document(PageSize.A4, 50, 50, 50, 50);
+		try {
+			ByteArrayOutputStream saida = new ByteArrayOutputStream();
+			PdfWriter.getInstance(documento, saida);
+			documento.open();
+
+			documento.add(new Paragraph("Relatório do projeto '" + relatorio.getProjeto().getNome() + "'", fonteTitulo));
+			documento.add(new Paragraph("Gerado em " + relatorio.getGeradoEm().format(FORMATO_DE_DATA_E_HORA)
+					+ " por " + relatorio.getGeradoPor().getNome(), fonteSubtitulo));
+			documento.add(Chunk.NEWLINE);
+
+			for (String linha : relatorio.getConteudo().split("\n")) {
+				documento.add(new Paragraph(linha, fonteCorpo));
+			}
+
+			if (relatorio.getTranscricaoAudio() != null && !relatorio.getTranscricaoAudio().isBlank()) {
+				documento.add(Chunk.NEWLINE);
+				documento.add(new Paragraph("OBSERVAÇÃO NARRADA:", fonteNegrito));
+				documento.add(new Paragraph(relatorio.getTranscricaoAudio(), fonteCorpo));
+			}
+
+			documento.close();
+			return saida.toByteArray();
+		} catch (DocumentException excecao) {
+			throw new RegraDeNegocioExcecao("Nao foi possivel gerar o PDF do relatorio.");
+		}
 	}
 
 	// ---------- montagem do texto do relatorio (RF-04.2) ----------

@@ -2,6 +2,7 @@ package br.edu.fatec.kanvox.controlador;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -332,6 +333,101 @@ class AutenticacaoControladorTestes {
 				.content("{\"token\":\"" + token + "\",\"novaSenha\":\"123\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.erro").value("A nova senha deve ter pelo menos 6 caracteres."));
+	}
+
+	@Test
+	void editarPerfilAtualizaONomeDoUsuario() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Nome Antigo\",\"email\":\"perfil@teste.com\",\"senha\":\"123456\"}"))
+				.andExpect(status().isCreated());
+		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"perfil@teste.com\",\"senha\":\"123456\"}"))
+				.andReturn().getResponse().getContentAsString();
+		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+
+		mockMvc.perform(put("/api/autenticacao/perfil")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Nome Novo\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nome").value("Nome Novo"))
+				.andExpect(jsonPath("$.senha").doesNotExist());
+
+		// a mudanca fica salva: consultar /eu de novo devolve o nome atualizado
+		mockMvc.perform(get("/api/autenticacao/eu")
+				.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nome").value("Nome Novo"));
+	}
+
+	@Test
+	void editarPerfilComNomeVazioERejeitado() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Perfil Vazio\",\"email\":\"perfilvazio@teste.com\",\"senha\":\"123456\"}"))
+				.andExpect(status().isCreated());
+		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"perfilvazio@teste.com\",\"senha\":\"123456\"}"))
+				.andReturn().getResponse().getContentAsString();
+		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+
+		mockMvc.perform(put("/api/autenticacao/perfil")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("O nome e obrigatorio."));
+	}
+
+	@Test
+	void alterarSenhaExigeASenhaAtualCorretaEUmaSenhaNovaValida() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Troca Senha\",\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.andExpect(status().isCreated());
+		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.andReturn().getResponse().getContentAsString();
+		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
+
+		// senha atual errada e rejeitada
+		mockMvc.perform(put("/api/autenticacao/senha")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"senhaAtual\":\"errada\",\"novaSenha\":\"senhaNova123\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Senha atual incorreta."));
+
+		// senha nova curta demais e rejeitada, mesmo com a senha atual certa
+		mockMvc.perform(put("/api/autenticacao/senha")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"senhaAtual\":\"senhaAntiga\",\"novaSenha\":\"123\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("A nova senha deve ter pelo menos 6 caracteres."));
+
+		// com senha atual certa e senha nova valida, a troca funciona
+		mockMvc.perform(put("/api/autenticacao/senha")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"senhaAtual\":\"senhaAntiga\",\"novaSenha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mensagem").value("Senha alterada com sucesso."));
+
+		// a senha antiga nao funciona mais, a nova sim
+		mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.andExpect(status().isBadRequest());
+		mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.token").isNotEmpty());
 	}
 
 }

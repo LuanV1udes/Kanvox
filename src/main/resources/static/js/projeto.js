@@ -35,7 +35,8 @@ const ROTULOS_DE_PRIORIDADE = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta' };
 
 let projeto = null;
 let membros = [];
-let tarefas = [];
+let tarefas = null;    // null (nao []) forca o primeiro carregarTarefas() a sempre renderizar,
+                        // mesmo quando o projeto ainda nao tem nenhuma tarefa (ver carregarTarefas)
 let meuPapel = null;
 let arrastando = false;          // pausa o polling enquanto um cartao e arrastado
 let tarefaEmEdicao = null;       // tarefa aberta no dialogo (null = criando nova)
@@ -68,8 +69,17 @@ async function carregarVisaoGeral() {
 	document.getElementById('resumo-do-progresso').textContent =
 		visao.progresso + '% concluído — ' + visao.tarefasConcluidas + ' de ' + visao.totalTarefas + ' tarefas';
 
+	const indicadorBloqueadas = document.getElementById('indicador-bloqueadas');
+	indicadorBloqueadas.hidden = visao.tarefasBloqueadas === 0;
+	indicadorBloqueadas.textContent = visao.tarefasBloqueadas + (visao.tarefasBloqueadas === 1 ? ' bloqueada' : ' bloqueadas');
+
+	const indicadorAtrasadas = document.getElementById('indicador-atrasadas');
+	indicadorAtrasadas.hidden = visao.tarefasAtrasadas === 0;
+	indicadorAtrasadas.textContent = visao.tarefasAtrasadas + (visao.tarefasAtrasadas === 1 ? ' tarefa atrasada' : ' tarefas atrasadas');
+
 	ajustarPermissoesDaTela();
 	renderizarMembros();
+	preencherFiltroDeResponsaveis();
 }
 
 function podeEscrever() {
@@ -107,12 +117,55 @@ setInterval(() => {
 	}
 }, 5000);
 
+/* ---------- filtro do quadro: busca por titulo, responsavel e prioridade ---------- */
+/* Filtro puramente visual, no frontend: o quadro ja recebe todas as tarefas
+   do projeto a cada polling, entao filtrar aqui nao exige nenhuma rota nova. */
+
+function preencherFiltroDeResponsaveis() {
+	const select = document.getElementById('filtro-responsavel');
+	const selecionado = select.value;
+	const opcoes = membros
+		.filter(membro => membro.papelNoProjeto !== 'OBSERVADOR' && membro.situacao === 'ATIVO')
+		.map(membro => `<option value="${membro.usuario.id}">${escaparHtml(membro.usuario.nome)}</option>`);
+	select.innerHTML = '<option value="">Todos os responsáveis</option>' + opcoes.join('');
+	select.value = selecionado;
+}
+
+function aplicarFiltros(lista) {
+	const texto = document.getElementById('filtro-busca').value.trim().toLowerCase();
+	const responsavelId = document.getElementById('filtro-responsavel').value;
+	const prioridade = document.getElementById('filtro-prioridade').value;
+	return lista.filter(tarefa => {
+		if (texto && !tarefa.titulo.toLowerCase().includes(texto)) {
+			return false;
+		}
+		if (responsavelId && (!tarefa.responsavel || String(tarefa.responsavel.id) !== responsavelId)) {
+			return false;
+		}
+		if (prioridade && tarefa.prioridade !== prioridade) {
+			return false;
+		}
+		return true;
+	});
+}
+
+document.getElementById('filtro-busca').addEventListener('input', renderizarQuadro);
+document.getElementById('filtro-responsavel').addEventListener('change', renderizarQuadro);
+document.getElementById('filtro-prioridade').addEventListener('change', renderizarQuadro);
+document.getElementById('botao-limpar-filtros').addEventListener('click', () => {
+	document.getElementById('filtro-busca').value = '';
+	document.getElementById('filtro-responsavel').value = '';
+	document.getElementById('filtro-prioridade').value = '';
+	renderizarQuadro();
+});
+
 /* ---------- quadro kanban (RF-03) ---------- */
 
 function renderizarQuadro() {
 	const quadro = document.getElementById('quadro');
+	const tarefasFiltradas = aplicarFiltros(tarefas);
 	quadro.innerHTML = COLUNAS.map(coluna => {
-		const tarefasDaColuna = tarefas.filter(tarefa => tarefa.status === coluna.status);
+		const tarefasDaColuna = tarefasFiltradas.filter(tarefa => tarefa.status === coluna.status);
 		// a <ul> e escrita sem quebras de linha para que uma coluna sem tarefas
 		// fique de fato vazia e o CSS possa desenhar a area tracejada (:empty)
 		return `
@@ -183,7 +236,8 @@ async function aoSoltarCartao(evento) {
 		exibirMensagem(erro.message, 'erro');
 	} finally {
 		// recarrega o quadro do servidor para garantir que a tela reflete o banco
-		tarefas = [];
+		// (null, nao [], senao mover a ultima tarefa de volta a coluna original nao re-renderiza)
+		tarefas = null;
 		carregarTarefas().catch(() => {});
 		carregarVisaoGeral().catch(() => {});
 	}
@@ -266,7 +320,7 @@ document.getElementById('formulario-tarefa').addEventListener('submit', async (e
 			await chamarApi('/projetos/' + projetoId + '/tarefas', { method: 'POST', body: corpo });
 		}
 		dialogoTarefa.close();
-		tarefas = [];
+		tarefas = null;
 		await carregarTarefas();
 		await carregarVisaoGeral();
 	} catch (erro) {
@@ -281,7 +335,8 @@ document.getElementById('botao-excluir-tarefa').addEventListener('click', async 
 	try {
 		await chamarApi('/tarefas/' + tarefaEmEdicao.id, { method: 'DELETE' });
 		dialogoTarefa.close();
-		tarefas = [];
+		// null (nao []): exclui a ultima tarefa de uma coluna tambem precisa re-renderizar
+		tarefas = null;
 		await carregarTarefas();
 		await carregarVisaoGeral();
 	} catch (erro) {
@@ -553,17 +608,48 @@ const dialogoRelatorio = document.getElementById('dialogo-relatorio');
 
 async function carregarRelatorios() {
 	const relatorios = await chamarApi('/projetos/' + projetoId + '/relatorios');
+	const lista = document.getElementById('lista-de-relatorios');
 	document.getElementById('aviso-sem-relatorios').hidden = relatorios.length > 0;
-	document.getElementById('lista-de-relatorios').innerHTML = relatorios.map(relatorio => `
-		<article class="cartao-relatorio">
-			<strong>Relatório de ${formatarDataEHora(relatorio.geradoEm)}</strong>
-			<span class="texto-suave"> — gerado por ${escaparHtml(relatorio.geradoPor.nome)}</span>
+	lista.innerHTML = relatorios.map(relatorio => `
+		<article class="cartao-relatorio" data-id="${relatorio.id}">
+			<div class="cabecalho-do-relatorio">
+				<div>
+					<strong>Relatório de ${formatarDataEHora(relatorio.geradoEm)}</strong>
+					<span class="texto-suave"> — gerado por ${escaparHtml(relatorio.geradoPor.nome)}</span>
+				</div>
+				<div class="espacador"></div>
+				<button type="button" class="botao-secundario botao-compacto botao-baixar-pdf">Baixar PDF</button>
+			</div>
 			<pre>${escaparHtml(relatorio.conteudo)}</pre>
 			${relatorio.transcricaoAudio
 				? `<div class="narracao">🎙️ <strong>Observação narrada:</strong> ${escaparHtml(relatorio.transcricaoAudio)}</div>`
 				: ''}
 		</article>
 	`).join('');
+
+	lista.querySelectorAll('.botao-baixar-pdf').forEach(botao => {
+		botao.addEventListener('click', () => baixarPdfDoRelatorio(botao.closest('.cartao-relatorio').dataset.id));
+	});
+}
+
+/** Baixa o PDF do relatorio via fetch direto (com o token), pois a resposta e binaria (RF-04.4). */
+async function baixarPdfDoRelatorio(relatorioId) {
+	try {
+		const resposta = await fetch('/api/relatorios/' + relatorioId + '/pdf', {
+			headers: { Authorization: 'Bearer ' + localStorage.getItem('kanvox_token') }
+		});
+		if (!resposta.ok) {
+			throw new Error('Não foi possível baixar o PDF do relatório.');
+		}
+		const url = URL.createObjectURL(await resposta.blob());
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'relatorio-' + relatorioId + '.pdf';
+		link.click();
+		URL.revokeObjectURL(url);
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
 }
 
 document.getElementById('botao-novo-relatorio').addEventListener('click', () => {

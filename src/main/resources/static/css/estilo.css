@@ -542,6 +542,19 @@ button:focus-visible {
 	padding: 0 0.6rem;
 }
 
+/* o rodape usa um <button> (abre o dialogo de perfil) no lugar da antiga <div>:
+   zera o visual padrao de botao para manter a mesma aparencia de antes */
+button.usuario {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	text-align: left;
+}
+
+button.usuario:hover .nome-do-usuario {
+	color: var(--cor-tinta);
+}
+
 /* circulo com as iniciais de quem esta logado */
 .avatar {
 	display: grid;
@@ -750,6 +763,19 @@ button:focus-visible {
 	border-color: var(--cor-aviso-borda);
 }
 
+/* selos de alerta na visao geral do projeto: tarefas bloqueadas/atrasadas (RF-02.3) */
+.selo-perigo {
+	color: var(--cor-perigo);
+	background: var(--cor-perigo-suave);
+	border-color: var(--cor-perigo-borda);
+}
+
+.selo-aviso {
+	color: var(--cor-aviso);
+	background: var(--cor-aviso-suave);
+	border-color: var(--cor-aviso-borda);
+}
+
 /* ---------- barra de progresso (RF-02.3) ---------- */
 
 .linha-de-progresso {
@@ -871,6 +897,31 @@ button:focus-visible {
 
 .cabecalho-do-projeto h1 {
 	margin: 0;
+}
+
+/* ---------- filtro do quadro (RF-03) ---------- */
+
+.linha-de-filtros {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+	margin-bottom: 1.1rem;
+}
+
+.linha-de-filtros input,
+.linha-de-filtros select {
+	width: auto;
+	margin-top: 0;
+}
+
+.linha-de-filtros input[type="search"] {
+	flex: 1;
+	min-width: 180px;
+}
+
+.linha-de-filtros select {
+	min-width: 170px;
 }
 
 /* ---------- quadro kanban (RF-03) ---------- */
@@ -1074,6 +1125,13 @@ button:focus-visible {
 
 .cartao-relatorio:first-child {
 	margin-top: 0;
+}
+
+.cabecalho-do-relatorio {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	flex-wrap: wrap;
 }
 
 .cartao-relatorio pre {

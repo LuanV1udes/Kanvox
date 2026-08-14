@@ -59,6 +59,13 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
+		<!-- Geracao de PDF dos relatorios (RF-04.4) -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>1.3.30</version>
+		</dependency>
+
 		<!-- Geracao e validacao de tokens JWT (autenticacao, RNF-02) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

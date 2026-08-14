@@ -1,12 +1,16 @@
 package br.edu.fatec.kanvox.controlador;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -193,6 +197,54 @@ class RelatorioControladorTestes {
 				.header("Authorization", "Bearer " + tokenMembro))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(1));
+	}
+
+	@Test
+	void baixarPdfDoRelatorioFuncionaParaGestorEMembro() throws Exception {
+		String tokenGestor = cadastrarELogar("Gestor Pdf", "gestor.pdf@teste.com");
+		String tokenMembro = cadastrarELogar("Membro Pdf", "membro.pdf@teste.com");
+		long projetoId = criarProjeto(tokenGestor, "Projeto Pdf");
+		mockMvc.perform(post("/api/projetos/" + projetoId + "/membros")
+				.header("Authorization", "Bearer " + tokenGestor)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"membro.pdf@teste.com\",\"papel\":\"MEMBRO\"}"))
+				.andExpect(status().isCreated());
+		String convites = mockMvc.perform(get("/api/convites")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andReturn().getResponse().getContentAsString();
+		long conviteId = ((Number) JsonPath.read(convites, "$[0].id")).longValue();
+		mockMvc.perform(post("/api/convites/" + conviteId + "/aceitar")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isOk());
+
+		String respostaRelatorio = mockMvc.perform(post("/api/projetos/" + projetoId + "/relatorios")
+				.header("Authorization", "Bearer " + tokenGestor))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getContentAsString();
+		long relatorioId = ((Number) JsonPath.read(respostaRelatorio, "$.id")).longValue();
+
+		// o Gestor baixa o PDF: confere o cabecalho de download e a assinatura "%PDF" do arquivo
+		byte[] pdf = mockMvc.perform(get("/api/relatorios/" + relatorioId + "/pdf")
+				.header("Authorization", "Bearer " + tokenGestor))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Content-Disposition",
+						"attachment; filename=\"relatorio-" + relatorioId + ".pdf\""))
+				.andReturn().getResponse().getContentAsByteArray();
+		assertEquals("%PDF", new String(pdf, 0, 4, StandardCharsets.US_ASCII));
+
+		// qualquer membro ativo tambem pode baixar — mesma regra de leitura do relatorio (RF-04.4)
+		mockMvc.perform(get("/api/relatorios/" + relatorioId + "/pdf")
+				.header("Authorization", "Bearer " + tokenMembro))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void baixarPdfDeRelatorioInexistenteDevolveErro() throws Exception {
+		String token = cadastrarELogar("Gestor Pdf Erro", "gestor.pdferro@teste.com");
+		mockMvc.perform(get("/api/relatorios/999999/pdf")
+				.header("Authorization", "Bearer " + token))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("Relatorio nao encontrado."));
 	}
 
 }

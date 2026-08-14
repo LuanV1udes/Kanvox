@@ -75,10 +75,10 @@ function montarNavegacao(itensDoProjeto, aoTrocarDeVisao) {
 		</nav>
 
 		<div class="rodape-da-barra">
-			<div class="usuario">
+			<button type="button" class="usuario" id="botao-meu-perfil" title="Meu perfil">
 				<span class="avatar" aria-hidden="true">${escaparHtml(iniciaisDoNome(usuario.nome))}</span>
 				<span class="nome-do-usuario">${escaparHtml(usuario.nome)}</span>
-			</div>
+			</button>
 			<div class="acoes-da-barra">
 				<div class="notificacoes">
 					<button type="button" class="botao-icone" id="botao-sino" title="Notificações" aria-label="Notificações">
@@ -107,6 +107,7 @@ function montarNavegacao(itensDoProjeto, aoTrocarDeVisao) {
 	document.getElementById('botao-sair').addEventListener('click', sairDaConta);
 	document.getElementById('botao-sino').addEventListener('click', alternarPainelDeNotificacoes);
 	document.getElementById('botao-marcar-todas').addEventListener('click', marcarTodasComoLidas);
+	document.getElementById('botao-meu-perfil').addEventListener('click', abrirDialogoDePerfil);
 
 	// cada item do projeto troca a secao exibida na pagina
 	barra.querySelectorAll('.item-de-navegacao[data-visao]').forEach(item => {
@@ -183,4 +184,98 @@ async function atualizarNotificacoes() {
 async function marcarTodasComoLidas() {
 	await chamarApi('/notificacoes/lidas', { method: 'PUT' });
 	atualizarNotificacoes();
+}
+
+/* ---------- meu perfil: editar nome e trocar senha ---------- */
+/* O dialogo e criado uma unica vez, sob demanda, e anexado ao final da
+   pagina — assim as duas paginas com barra lateral (projetos e projeto)
+   ganham a mesma tela de perfil sem duplicar HTML em cada uma. */
+
+function garantirDialogoDePerfil() {
+	if (document.getElementById('dialogo-perfil')) {
+		return;
+	}
+	document.body.insertAdjacentHTML('beforeend', `
+		<dialog id="dialogo-perfil">
+			<h2>Meu perfil</h2>
+
+			<form id="formulario-perfil-nome">
+				<label>Nome
+					<input type="text" id="perfil-nome" required maxlength="120">
+				</label>
+				<label>E-mail
+					<input type="email" id="perfil-email" disabled>
+				</label>
+				<button type="submit" class="botao-principal botao-compacto">Salvar nome</button>
+			</form>
+
+			<div class="separador-do-dialogo"></div>
+
+			<p class="titulo-da-secao">Trocar senha</p>
+			<form id="formulario-perfil-senha">
+				<label>Senha atual
+					<input type="password" id="perfil-senha-atual" required minlength="6">
+				</label>
+				<label>Nova senha (mínimo 6 caracteres)
+					<input type="password" id="perfil-senha-nova" required minlength="6">
+				</label>
+				<button type="submit" class="botao-secundario botao-compacto">Trocar senha</button>
+			</form>
+
+			<div class="acoes-do-dialogo">
+				<button type="button" class="botao-secundario" id="botao-fechar-perfil">Fechar</button>
+			</div>
+		</dialog>
+	`);
+
+	const dialogo = document.getElementById('dialogo-perfil');
+	document.getElementById('botao-fechar-perfil').addEventListener('click', () => dialogo.close());
+
+	document.getElementById('formulario-perfil-nome').addEventListener('submit', async (evento) => {
+		evento.preventDefault();
+		try {
+			const atualizado = await chamarApi('/autenticacao/perfil', {
+				method: 'PUT',
+				body: { nome: document.getElementById('perfil-nome').value }
+			});
+			const usuario = usuarioLogado();
+			usuario.nome = atualizado.nome;
+			localStorage.setItem('kanvox_usuario', JSON.stringify(usuario));
+			atualizarUsuarioNaBarra(usuario);
+			exibirMensagem('Nome atualizado!', 'sucesso');
+		} catch (erro) {
+			exibirMensagem(erro.message, 'erro');
+		}
+	});
+
+	document.getElementById('formulario-perfil-senha').addEventListener('submit', async (evento) => {
+		evento.preventDefault();
+		try {
+			await chamarApi('/autenticacao/senha', {
+				method: 'PUT',
+				body: {
+					senhaAtual: document.getElementById('perfil-senha-atual').value,
+					novaSenha: document.getElementById('perfil-senha-nova').value
+				}
+			});
+			evento.target.reset();
+			exibirMensagem('Senha alterada com sucesso!', 'sucesso');
+		} catch (erro) {
+			exibirMensagem(erro.message, 'erro');
+		}
+	});
+}
+
+function atualizarUsuarioNaBarra(usuario) {
+	document.querySelector('.nome-do-usuario').textContent = usuario.nome;
+	document.querySelector('.avatar').textContent = iniciaisDoNome(usuario.nome);
+}
+
+function abrirDialogoDePerfil() {
+	garantirDialogoDePerfil();
+	const usuario = usuarioLogado();
+	document.getElementById('perfil-nome').value = usuario.nome;
+	document.getElementById('perfil-email').value = usuario.email;
+	document.getElementById('formulario-perfil-senha').reset();
+	document.getElementById('dialogo-perfil').showModal();
 }

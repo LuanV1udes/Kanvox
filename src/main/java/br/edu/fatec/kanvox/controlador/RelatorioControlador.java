@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -67,6 +69,17 @@ public class RelatorioControlador {
 	public List<Relatorio> listar(@AuthenticationPrincipal Usuario usuarioLogado,
 			@PathVariable Long projetoId) {
 		return relatorioServico.listar(usuarioLogado, projetoId);
+	}
+
+	/** Baixa o PDF de um relatorio ja gerado (RF-04.4 — exportacao desejavel). */
+	@GetMapping("/relatorios/{relatorioId}/pdf")
+	public ResponseEntity<byte[]> baixarPdf(@AuthenticationPrincipal Usuario usuarioLogado,
+			@PathVariable Long relatorioId) {
+		byte[] pdf = relatorioServico.gerarPdf(usuarioLogado, relatorioId);
+		return ResponseEntity.ok()
+				.contentType(MediaType.APPLICATION_PDF)
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"relatorio-" + relatorioId + ".pdf\"")
+				.body(pdf);
 	}
 
 }

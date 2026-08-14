@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -77,6 +78,20 @@ public class AutenticacaoControlador {
 	public Map<String, String> consultarTokenDeRecuperacao(@PathVariable String token) {
 		String email = autenticacaoServico.buscarEmailPeloTokenDeRecuperacao(token);
 		return Map.of("email", email);
+	}
+
+	/** Edita o nome do usuario logado. Corpo esperado: { "nome": "..." } */
+	@PutMapping("/perfil")
+	public Usuario editarPerfil(@AuthenticationPrincipal Usuario usuarioLogado, @RequestBody Map<String, String> corpo) {
+		return autenticacaoServico.editarPerfil(usuarioLogado, corpo.get("nome"));
+	}
+
+	/** Troca a senha do usuario logado. Corpo esperado: { "senhaAtual": "...", "novaSenha": "..." } */
+	@PutMapping("/senha")
+	public Map<String, String> alterarSenha(@AuthenticationPrincipal Usuario usuarioLogado,
+			@RequestBody Map<String, String> corpo) {
+		autenticacaoServico.alterarSenha(usuarioLogado, corpo.get("senhaAtual"), corpo.get("novaSenha"));
+		return Map.of("mensagem", "Senha alterada com sucesso.");
 	}
 
 }

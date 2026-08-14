@@ -1,5 +1,6 @@
 package br.edu.fatec.kanvox.servico;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +89,13 @@ public class ProjetoServico {
 				.filter(tarefa -> tarefa.getStatus() == StatusTarefa.CONCLUIDO)
 				.count();
 		int progresso = totalDeTarefas == 0 ? 0 : (int) (tarefasConcluidas * 100 / totalDeTarefas);
+		long tarefasBloqueadas = tarefas.stream()
+				.filter(tarefa -> tarefa.getStatus() == StatusTarefa.BLOQUEADO)
+				.count();
+		long tarefasAtrasadas = tarefas.stream()
+				.filter(tarefa -> tarefa.getStatus() != StatusTarefa.CONCLUIDO
+						&& tarefa.getPrazo() != null && tarefa.getPrazo().isBefore(LocalDate.now()))
+				.count();
 
 		Map<String, Object> visaoGeral = new HashMap<>();
 		visaoGeral.put("projeto", projeto);
@@ -98,6 +106,8 @@ public class ProjetoServico {
 		visaoGeral.put("tarefasConcluidas", tarefasConcluidas);
 		visaoGeral.put("tarefasEmAberto", totalDeTarefas - tarefasConcluidas);
 		visaoGeral.put("progresso", progresso);
+		visaoGeral.put("tarefasBloqueadas", tarefasBloqueadas);
+		visaoGeral.put("tarefasAtrasadas", tarefasAtrasadas);
 		return visaoGeral;
 	}
 
