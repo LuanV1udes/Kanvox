@@ -5,16 +5,50 @@ Trabalho de Graduação — Fatec Ourinhos, ADS. O documento completo do projeto
 
 ## Requisitos para rodar
 
-- **Java 21** (já basta — o Maven vem embutido pelo wrapper `mvnw`)
-- **PostgreSQL** local com o usuário e o banco do projeto. Setup feito **uma única vez** — no pgAdmin (Query Tool) ou no psql, conectado como superusuário `postgres`, execute:
+- **[Java 21 (JDK)](https://adoptium.net/)** — confira com `java -version`; precisa ser o JDK (não só o JRE), porque o Maven compila o projeto. O Maven em si já vem embutido pelo wrapper `mvnw`, não precisa instalar separado.
+- **[PostgreSQL](https://www.postgresql.org/download/)** local (o projeto foi feito e testado na versão 18) — ver seção [Banco de dados](#banco-de-dados) abaixo.
+- **[Git](https://git-scm.com/downloads)** para clonar o repositório.
+- **[VS Code](https://code.visualstudio.com/)** (opcional, mas é o editor usado no projeto) — ver seção [Configurar o VS Code](#configurar-o-vs-code) abaixo.
+- **(Opcional) SMTP para recuperação de senha** — sem isso, o "Esqueceu sua senha?" ainda funciona (gera o token normalmente), só não envia o e-mail de verdade; o erro fica só no log (degradação graciosa). Para enviar de verdade, gere uma ["senha de app"](https://myaccount.google.com/apppasswords) no Gmail (não a senha normal da conta) e defina como mostrado abaixo.
 
-```sql
-CREATE USER kanvox WITH PASSWORD 'kanvox';
-CREATE DATABASE kanvox OWNER kanvox;
+## Banco de dados
+
+1. Instale o PostgreSQL (link acima) — no instalador do Windows, o pgAdmin já vem junto. Anote a senha que você definir para o superusuário `postgres` durante a instalação.
+2. Confira se o serviço está rodando: abra `services.msc` (Win+R → digite `services.msc`) e procure por algo como **`postgresql-x64-18`** — o status precisa estar "Em execução". Se não estiver, clique com o botão direito → Iniciar.
+3. Crie o usuário e o banco **dedicados ao projeto** (feito uma única vez) — abra o pgAdmin, conecte no servidor local como `postgres`, clique com o botão direito no banco `postgres` → **Query Tool**, e rode:
+
+   ```sql
+   CREATE USER kanvox WITH PASSWORD 'kanvox';
+   CREATE DATABASE kanvox OWNER kanvox;
+   ```
+
+   (o mesmo funciona pelo `psql` no terminal, se preferir linha de comando em vez do pgAdmin)
+
+4. Pronto — a aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco dedicados, nenhuma senha pessoal do PostgreSQL fica no código). As tabelas são criadas sozinhas na primeira vez que a aplicação sobe (`spring.jpa.hibernate.ddl-auto=update`), não precisa rodar nenhum script de schema.
+
+## Configurar o VS Code
+
+O projeto já traz um `.vscode/extensions.json` — ao abrir a pasta pela primeira vez, o VS Code mostra um aviso "This workspace has extension recommendations" com um botão **Install All**. Se não aparecer, instale manualmente pela aba Extensions (`Ctrl+Shift+X`), buscando por:
+
+| Extensão | ID | Para quê |
+|---|---|---|
+| Extension Pack for Java | `vscjava.vscode-java-pack` | Suporte a Java: autocompletar, navegação, debugger e o runner de testes (JUnit) |
+| Spring Boot Extension Pack | `vmware.vscode-boot-dev-pack` | Autocompletar de `application.properties`, navegação nos endpoints REST e o painel **Spring Boot Dashboard** |
+
+Ou pelo terminal, de uma vez:
+
+```
+code --install-extension vscjava.vscode-java-pack
+code --install-extension vmware.vscode-boot-dev-pack
 ```
 
-A aplicação se conecta por padrão com `kanvox` / `kanvox` (usuário e banco dedicados ao projeto — nenhuma senha pessoal fica no código).
-- **(Opcional) SMTP para recuperação de senha** — sem isso, o "Esqueceu sua senha?" ainda funciona (gera o token normalmente), só não envia o e-mail de verdade; o erro fica só no log (degradação graciosa). Para enviar de verdade, gere uma ["senha de app"](https://myaccount.google.com/apppasswords) no Gmail (não a senha normal da conta) e defina como mostrado abaixo.
+Depois de instaladas, o VS Code leva um tempinho **indexando o projeto** (barra de progresso no canto inferior direito) antes de os comandos abaixo aparecerem — é normal na primeira vez.
+
+**Rodar a aplicação pelo VS Code** (sem digitar nada no terminal): abra `src/main/java/br/edu/fatec/kanvox/KanvoxAplicacao.java` e clique em **Run** (aparece flutuando acima de `public static void main`) — ou abra o painel **Spring Boot Dashboard** na barra lateral esquerda e clique no ▶ ao lado de `kanvox`. Pra debugar (com breakpoints), use **Debug** no mesmo lugar em vez de Run, ou `F5`.
+
+**Rodar os testes pelo VS Code**: abra a aba **Testing** (ícone de frasco na barra lateral esquerda) e clique em **Run Tests** no topo pra rodar tudo — ou clique no ▶ verde que aparece do lado de cada `@Test`/classe, direto no editor, pra rodar só um teste.
+
+Essas duas opções fazem exatamente o mesmo que os comandos de terminal (`mvnw spring-boot:run` e `mvnw test`) mostrados mais abaixo — use o que for mais confortável.
 
 ### Credenciais (arquivo `.env`)
 
@@ -35,6 +69,8 @@ copy .env.example .env
 
 ## Como rodar a aplicação
 
+Pelo terminal (na raiz do projeto) — ou use o botão **Run** do VS Code, explicado acima:
+
 ```
 .\mvnw.cmd spring-boot:run
 ```
@@ -48,6 +84,8 @@ Abra **http://localhost:8080** no navegador — a tela de login/cadastro aparece
 Guia completo passo a passo — criação da VPS gratuita na Oracle Cloud, DNS, systemd e Caddy (HTTPS automático) — em [`deploy/GUIA_DEPLOY.md`](deploy/GUIA_DEPLOY.md).
 
 ## Como rodar os testes
+
+Pelo terminal — ou use a aba **Testing** do VS Code, explicada acima:
 
 ```
 .\mvnw.cmd test

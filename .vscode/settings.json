@@ -1,0 +1,6 @@
+{
+	"editor.insertSpaces": false,
+	"editor.tabSize": 4,
+	"java.configuration.updateBuildConfiguration": "automatic",
+	"maven.executable.path": "${workspaceFolder}/mvnw.cmd"
+}

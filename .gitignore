@@ -33,4 +33,10 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
+# Ignora tudo por padrao (configuracoes pessoais), mas versiona os dois
+# arquivos que ajudam quem esta clonando o projeto pela primeira vez:
+# a lista de extensoes recomendadas e as configuracoes de formatacao
+# (tabs, nao espacos — igual ao resto do codigo).
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
