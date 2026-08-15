@@ -26,7 +26,7 @@ class ComentarioControladorTestes {
 	private long cadastrar(String nome, String email) throws Exception {
 		String resposta = mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"" + nome + "\",\"email\":\"" + email + "\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"" + nome + "\",\"email\":\"" + email + "\",\"senha\":\"Senha123!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		return ((Number) JsonPath.read(resposta, "$.id")).longValue();
 	}
@@ -34,7 +34,7 @@ class ComentarioControladorTestes {
 	private String logar(String email) throws Exception {
 		String resposta = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"" + email + "\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"" + email + "\",\"senha\":\"Senha123!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.read(resposta, "$.token");
 	}

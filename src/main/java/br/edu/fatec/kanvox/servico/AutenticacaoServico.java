@@ -16,6 +16,10 @@ public class AutenticacaoServico {
 	/** Validade do link de recuperacao de senha (RF-01.3). */
 	private static final long VALIDADE_DO_TOKEN_EM_HORAS = 1;
 
+	/** Senha forte no cadastro e na troca de senha (RNF-02): minimo de caracteres e de variedade entre eles. */
+	private static final int COMPRIMENTO_MINIMO_DA_SENHA = 8;
+	private static final int CRITERIOS_MINIMOS_DE_VARIEDADE = 3;
+
 	private final UsuarioRepositorio usuarioRepositorio;
 	private final PasswordEncoder codificadorDeSenha;
 	private final TokenServico tokenServico;
@@ -41,6 +45,7 @@ public class AutenticacaoServico {
 				|| estaVazio(dadosRecebidos.getSenha())) {
 			throw new RegraDeNegocioExcecao("Nome, e-mail e senha sao obrigatorios.");
 		}
+		validarForcaDaSenha(dadosRecebidos.getSenha());
 		if (usuarioRepositorio.buscarPorEmail(dadosRecebidos.getEmail()).isPresent()) {
 			throw new RegraDeNegocioExcecao("Ja existe um usuario cadastrado com este e-mail.");
 		}
@@ -117,9 +122,7 @@ public class AutenticacaoServico {
 		if (senhaAtual == null || !codificadorDeSenha.matches(senhaAtual, usuario.getSenha())) {
 			throw new RegraDeNegocioExcecao("Senha atual incorreta.");
 		}
-		if (estaVazio(novaSenha) || novaSenha.length() < 6) {
-			throw new RegraDeNegocioExcecao("A nova senha deve ter pelo menos 6 caracteres.");
-		}
+		validarForcaDaSenha(novaSenha == null ? "" : novaSenha);
 		usuario.setSenha(codificadorDeSenha.encode(novaSenha));
 		usuarioRepositorio.save(usuario);
 	}
@@ -140,6 +143,37 @@ public class AutenticacaoServico {
 
 	private boolean estaVazio(String valor) {
 		return valor == null || valor.isBlank();
+	}
+
+	/**
+	 * Exige uma senha forte no cadastro e na troca de senha (RNF-02): pelo menos
+	 * 8 caracteres e pelo menos 3 destes 4 tipos de caractere — minuscula,
+	 * maiuscula, numero, simbolo. O mesmo criterio e mostrado ao usuario em
+	 * tempo real (barra de forca, funcao compartilhada em api.js); aqui e a
+	 * garantia do lado do servidor. A redefinicao de senha por e-mail
+	 * (redefinirSenha) fica de fora de proposito: exige so 6 caracteres.
+	 */
+	private void validarForcaDaSenha(String senha) {
+		if (senha.length() < COMPRIMENTO_MINIMO_DA_SENHA) {
+			throw new RegraDeNegocioExcecao("A senha deve ter pelo menos 8 caracteres.");
+		}
+		int criteriosAtendidos = 0;
+		if (senha.chars().anyMatch(Character::isLowerCase)) {
+			criteriosAtendidos++;
+		}
+		if (senha.chars().anyMatch(Character::isUpperCase)) {
+			criteriosAtendidos++;
+		}
+		if (senha.chars().anyMatch(Character::isDigit)) {
+			criteriosAtendidos++;
+		}
+		if (senha.chars().anyMatch(caractere -> !Character.isLetterOrDigit(caractere))) {
+			criteriosAtendidos++;
+		}
+		if (criteriosAtendidos < CRITERIOS_MINIMOS_DE_VARIEDADE) {
+			throw new RegraDeNegocioExcecao(
+					"A senha e fraca demais. Combine pelo menos 3 destes: letra maiuscula, letra minuscula, numero e simbolo.");
+		}
 	}
 
 }

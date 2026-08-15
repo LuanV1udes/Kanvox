@@ -115,7 +115,7 @@ class AutenticacaoControladorTestes {
 	void cadastroCriaUsuarioSemExporASenha() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Teste\",\"email\":\"cadastro@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Teste\",\"email\":\"cadastro@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.email").value("cadastro@teste.com"))
@@ -124,8 +124,37 @@ class AutenticacaoControladorTestes {
 	}
 
 	@Test
+	void cadastroComSenhaCurtaERejeitado() throws Exception {
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Senha Curta\",\"email\":\"senhacurta@teste.com\",\"senha\":\"Abc1!\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value("A senha deve ter pelo menos 8 caracteres."));
+	}
+
+	@Test
+	void cadastroComSenhaSemVariedadeDeCaracteresERejeitado() throws Exception {
+		// 8+ caracteres, mas so letra minuscula: atende 1 dos 4 criterios de variedade (RNF-02)
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Senha Fraca\",\"email\":\"senhafraca@teste.com\",\"senha\":\"somenteminuscula\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value(
+						"A senha e fraca demais. Combine pelo menos 3 destes: letra maiuscula, letra minuscula, numero e simbolo."));
+	}
+
+	@Test
+	void cadastroComSenhaForteFunciona() throws Exception {
+		// 8+ caracteres com maiuscula, minuscula e numero: 3 dos 4 criterios, ja e suficiente
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Senha Forte\",\"email\":\"senhaforte@teste.com\",\"senha\":\"Abcdefg1\"}"))
+				.andExpect(status().isCreated());
+	}
+
+	@Test
 	void cadastroComEmailRepetidoERejeitadoComMensagemAmigavel() throws Exception {
-		String corpo = "{\"nome\":\"Aluno Teste\",\"email\":\"repetido@teste.com\",\"senha\":\"123456\"}";
+		String corpo = "{\"nome\":\"Aluno Teste\",\"email\":\"repetido@teste.com\",\"senha\":\"Senha123!\"}";
 
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON).content(corpo))
@@ -141,12 +170,12 @@ class AutenticacaoControladorTestes {
 	void loginComCredenciaisCorretasDevolveToken() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Teste\",\"email\":\"login@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Teste\",\"email\":\"login@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 
 		mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"login@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"login@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").isNotEmpty());
 	}
@@ -170,11 +199,11 @@ class AutenticacaoControladorTestes {
 	void rotaEuDevolveOUsuarioLogado() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Eu\",\"email\":\"eu@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Eu\",\"email\":\"eu@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"eu@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"eu@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
 
@@ -194,12 +223,12 @@ class AutenticacaoControladorTestes {
 	void rotaInexistenteComTokenValidoDevolve404() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Teste\",\"email\":\"rota404@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Teste\",\"email\":\"rota404@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 
 		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"rota404@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"rota404@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString();
 		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
@@ -214,7 +243,7 @@ class AutenticacaoControladorTestes {
 	void fluxoCompletoDeRecuperacaoDeSenhaFunciona() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Recupera\",\"email\":\"recupera@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.content("{\"nome\":\"Aluno Recupera\",\"email\":\"recupera@teste.com\",\"senha\":\"SenhaAntiga1!\"}"))
 				.andExpect(status().isCreated());
 
 		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
@@ -239,7 +268,7 @@ class AutenticacaoControladorTestes {
 		// a senha antiga nao funciona mais
 		mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"recupera@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.content("{\"email\":\"recupera@teste.com\",\"senha\":\"SenhaAntiga1!\"}"))
 				.andExpect(status().isBadRequest());
 
 		// a senha nova funciona
@@ -265,7 +294,7 @@ class AutenticacaoControladorTestes {
 
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Consulta Expirada\",\"email\":\"consulta.expirada@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Consulta Expirada\",\"email\":\"consulta.expirada@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 		Usuario usuario = usuarioRepositorio.buscarPorEmail("consulta.expirada@teste.com").orElseThrow();
 		usuario.setTokenRecuperacao("token-de-consulta-expirado");
@@ -300,7 +329,7 @@ class AutenticacaoControladorTestes {
 	void redefinirSenhaComTokenExpiradoERejeitado() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Expirado\",\"email\":\"expirado@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Expirado\",\"email\":\"expirado@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 
 		// simula um token gerado ha mais de 1h (a passagem do tempo nao e testavel sem mexer no relogio)
@@ -320,7 +349,7 @@ class AutenticacaoControladorTestes {
 	void redefinirSenhaComSenhaCurtaERejeitada() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Curto\",\"email\":\"curto@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Curto\",\"email\":\"curto@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -339,11 +368,11 @@ class AutenticacaoControladorTestes {
 	void editarPerfilAtualizaONomeDoUsuario() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Nome Antigo\",\"email\":\"perfil@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Nome Antigo\",\"email\":\"perfil@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"perfil@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"perfil@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
 
@@ -366,11 +395,11 @@ class AutenticacaoControladorTestes {
 	void editarPerfilComNomeVazioERejeitado() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Perfil Vazio\",\"email\":\"perfilvazio@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"nome\":\"Aluno Perfil Vazio\",\"email\":\"perfilvazio@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andExpect(status().isCreated());
 		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"perfilvazio@teste.com\",\"senha\":\"123456\"}"))
+				.content("{\"email\":\"perfilvazio@teste.com\",\"senha\":\"Senha123!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
 
@@ -386,11 +415,11 @@ class AutenticacaoControladorTestes {
 	void alterarSenhaExigeASenhaAtualCorretaEUmaSenhaNovaValida() throws Exception {
 		mockMvc.perform(post("/api/autenticacao/cadastro")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"nome\":\"Aluno Troca Senha\",\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.content("{\"nome\":\"Aluno Troca Senha\",\"email\":\"trocasenha@teste.com\",\"senha\":\"SenhaAntiga1!\"}"))
 				.andExpect(status().isCreated());
 		String respostaLogin = mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"SenhaAntiga1!\"}"))
 				.andReturn().getResponse().getContentAsString();
 		String token = respostaLogin.replaceAll(".*\"token\":\"([^\"]+)\".*", "$1");
 
@@ -398,7 +427,7 @@ class AutenticacaoControladorTestes {
 		mockMvc.perform(put("/api/autenticacao/senha")
 				.header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"senhaAtual\":\"errada\",\"novaSenha\":\"senhaNova123\"}"))
+				.content("{\"senhaAtual\":\"errada\",\"novaSenha\":\"SenhaNova123!\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.erro").value("Senha atual incorreta."));
 
@@ -406,26 +435,35 @@ class AutenticacaoControladorTestes {
 		mockMvc.perform(put("/api/autenticacao/senha")
 				.header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"senhaAtual\":\"senhaAntiga\",\"novaSenha\":\"123\"}"))
+				.content("{\"senhaAtual\":\"SenhaAntiga1!\",\"novaSenha\":\"123\"}"))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.erro").value("A nova senha deve ter pelo menos 6 caracteres."));
+				.andExpect(jsonPath("$.erro").value("A senha deve ter pelo menos 8 caracteres."));
 
-		// com senha atual certa e senha nova valida, a troca funciona
+		// senha nova sem variedade de caracteres tambem e rejeitada (RNF-02): mesma regra do cadastro
 		mockMvc.perform(put("/api/autenticacao/senha")
 				.header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"senhaAtual\":\"senhaAntiga\",\"novaSenha\":\"senhaNova123\"}"))
+				.content("{\"senhaAtual\":\"SenhaAntiga1!\",\"novaSenha\":\"somenteminuscula\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.erro").value(
+						"A senha e fraca demais. Combine pelo menos 3 destes: letra maiuscula, letra minuscula, numero e simbolo."));
+
+		// com senha atual certa e senha nova forte, a troca funciona
+		mockMvc.perform(put("/api/autenticacao/senha")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"senhaAtual\":\"SenhaAntiga1!\",\"novaSenha\":\"SenhaNova123!\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.mensagem").value("Senha alterada com sucesso."));
 
 		// a senha antiga nao funciona mais, a nova sim
 		mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaAntiga\"}"))
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"SenhaAntiga1!\"}"))
 				.andExpect(status().isBadRequest());
 		mockMvc.perform(post("/api/autenticacao/login")
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"senhaNova123\"}"))
+				.content("{\"email\":\"trocasenha@teste.com\",\"senha\":\"SenhaNova123!\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").isNotEmpty());
 	}
