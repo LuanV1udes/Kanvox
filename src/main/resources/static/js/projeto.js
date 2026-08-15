@@ -7,16 +7,22 @@
 
 exigirSessao();
 
-// As tres secoes da pagina viram itens da barra lateral: a primeira
-// (o quadro) e a que aparece ao abrir o projeto.
+// As secoes da pagina viram itens da barra lateral: a primeira
+// (o quadro) e a que aparece ao abrir o projeto. "Desempenho" e exclusiva
+// do Gestor — comeca escondida e ajustarPermissoesDaTela() a libera.
 montarNavegacao([
 	{ visao: 'quadro', rotulo: 'Quadro', icone: 'quadro' },
 	{ visao: 'membros', rotulo: 'Membros', icone: 'membros' },
-	{ visao: 'relatorios', rotulo: 'Relatórios', icone: 'relatorios' }
+	{ visao: 'linha-do-tempo', rotulo: 'Linha do tempo', icone: 'linhadotempo' },
+	{ visao: 'relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
+	{ visao: 'desempenho', rotulo: 'Desempenho', icone: 'desempenho', somenteGestor: true }
 ], (visao) => {
 	// ao voltar para os relatorios, busca a lista de novo (pode ter mudado)
 	if (visao === 'relatorios') {
 		carregarRelatorios().catch(erro => exibirMensagem(erro.message, 'erro'));
+	}
+	if (visao === 'desempenho') {
+		carregarDesempenho().catch(erro => exibirMensagem(erro.message, 'erro'));
 	}
 });
 
@@ -31,7 +37,22 @@ const COLUNAS = [
 	{ status: 'CONCLUIDO', titulo: 'Concluído' }
 ];
 
+/* Icones usados junto com texto (botao de gravar, badge de dependencia...),
+   desenhados em SVG — sem emoji, mesmo espirito dos icones de navegacao.js. */
+const ICONE_MICROFONE = '<svg class="icone-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"></rect><path d="M5 10v1a7 7 0 0 0 14 0v-1"></path><path d="M12 18v4M8 22h8"></path></svg>';
+const ICONE_PARAR = '<svg class="icone-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>';
+const ICONE_AGUARDANDO = '<svg class="icone-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>';
+
 const ROTULOS_DE_PRIORIDADE = { BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta' };
+const ROTULOS_DE_STATUS = Object.fromEntries(COLUNAS.map(coluna => [coluna.status, coluna.titulo]));
+// reaproveita as cores ja usadas nos selos de papel/status do projeto — sem CSS novo
+const SELOS_DE_STATUS = {
+	A_FAZER: 'selo-encerrado',
+	EM_ANDAMENTO: 'selo-gestor',
+	BLOQUEADO: 'selo-perigo',
+	EM_REVISAO: 'selo-aviso',
+	CONCLUIDO: 'selo-ativo'
+};
 
 let projeto = null;
 let membros = [];
@@ -99,14 +120,16 @@ function ajustarPermissoesDaTela() {
 	document.getElementById('formulario-convite').hidden = !(souGestor() && projeto.status === 'ATIVO');
 	document.getElementById('botao-sair-do-projeto').hidden = souGestor();
 	document.getElementById('botao-novo-relatorio').hidden = !souGestor();
+	document.querySelector('.item-de-navegacao[data-visao="desempenho"]').hidden = !souGestor();
 }
 
 async function carregarTarefas() {
 	const novas = await chamarApi('/projetos/' + projetoId + '/tarefas');
-	// so redesenha o quadro se algo mudou (evita piscadas no polling)
+	// so redesenha se algo mudou (evita piscadas no polling)
 	if (JSON.stringify(novas) !== JSON.stringify(tarefas)) {
 		tarefas = novas;
 		renderizarQuadro();
+		renderizarLinhaDoTempo();
 	}
 }
 
@@ -209,6 +232,11 @@ function nomesDosResponsaveis(tarefa) {
 	return nomes.length <= 2 ? nomes.join(', ') : nomes.slice(0, 2).join(', ') + ' +' + (nomes.length - 2);
 }
 
+/** Dependencias desta tarefa que ainda nao foram concluidas — ela nao sai de "A Fazer" enquanto existirem. */
+function dependenciasPendentes(tarefa) {
+	return (tarefa.dependencias || []).filter(dependencia => dependencia.status !== 'CONCLUIDO');
+}
+
 function montarCartaoDeTarefa(tarefa) {
 	// membro so pode mover tarefas em que e um dos responsaveis, e nao pode
 	// tirar uma tarefa de Concluido — isso e decisao exclusiva do Gestor (RF-03.3 / RF-03.7)
@@ -216,9 +244,11 @@ function montarCartaoDeTarefa(tarefa) {
 	const arrastavel = souGestor() || (souUmDosResponsaveis && tarefa.status !== 'CONCLUIDO');
 	const prazoVencido = tarefa.prazo && tarefa.status !== 'CONCLUIDO'
 		&& tarefa.prazo < new Date().toISOString().slice(0, 10);
+	const pendentes = dependenciasPendentes(tarefa);
 	return `
 		<li class="cartao-tarefa ${arrastavel ? '' : 'nao-arrastavel'}" data-id="${tarefa.id}" data-prioridade="${tarefa.prioridade}">
 			<div class="titulo-da-tarefa">${escaparHtml(tarefa.titulo)}</div>
+			${pendentes.length > 0 ? `<div class="aviso-dependencia" title="Aguardando: ${escaparHtml(pendentes.map(d => d.titulo).join(', '))}">${ICONE_AGUARDANDO}aguarda ${pendentes.length} ${pendentes.length === 1 ? 'tarefa' : 'tarefas'}</div>` : ''}
 			<div class="detalhes-da-tarefa">
 				<span title="${escaparHtml(tarefa.responsaveis.map(r => r.nome).join(', '))}">${escaparHtml(nomesDosResponsaveis(tarefa))}</span>
 				<span class="${prazoVencido ? 'prazo-vencido' : ''}">
@@ -252,6 +282,84 @@ async function aoSoltarCartao(evento) {
 	}
 }
 
+/* ---------- linha do tempo: tarefas em aberto organizadas por prazo ---------- */
+/* Assim como o filtro do quadro, e so uma outra forma de olhar as mesmas
+   tarefas que ja chegam pelo polling — nenhuma rota nova. */
+
+const GRUPOS_DA_LINHA_DO_TEMPO = [
+	{ chave: 'atrasadas', rotulo: 'Atrasadas' },
+	{ chave: 'hoje', rotulo: 'Hoje' },
+	{ chave: 'estaSemana', rotulo: 'Esta semana' },
+	{ chave: 'maisAdiante', rotulo: 'Mais adiante' },
+	{ chave: 'semPrazo', rotulo: 'Sem prazo definido' }
+];
+
+/** Separa as tarefas em aberto em baldes de tempo, cada um ja ordenado por prazo. */
+function agruparParaLinhaDoTempo(lista) {
+	const hoje = new Date().toISOString().slice(0, 10);
+	const emUmaSemana = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+	const grupos = { atrasadas: [], hoje: [], estaSemana: [], maisAdiante: [], semPrazo: [] };
+
+	lista.filter(tarefa => tarefa.status !== 'CONCLUIDO').forEach(tarefa => {
+		if (!tarefa.prazo) {
+			grupos.semPrazo.push(tarefa);
+		} else if (tarefa.prazo < hoje) {
+			grupos.atrasadas.push(tarefa);
+		} else if (tarefa.prazo === hoje) {
+			grupos.hoje.push(tarefa);
+		} else if (tarefa.prazo <= emUmaSemana) {
+			grupos.estaSemana.push(tarefa);
+		} else {
+			grupos.maisAdiante.push(tarefa);
+		}
+	});
+	Object.values(grupos).forEach(grupo => grupo.sort((a, b) => (a.prazo || '9999-99-99').localeCompare(b.prazo || '9999-99-99')));
+	return grupos;
+}
+
+function montarItemDaLinhaDoTempo(tarefa) {
+	const pendentes = dependenciasPendentes(tarefa);
+	const prazoVencido = tarefa.prazo && tarefa.prazo < new Date().toISOString().slice(0, 10);
+	return `
+		<li class="item-da-linha-do-tempo" data-id="${tarefa.id}">
+			<span class="selo ${SELOS_DE_STATUS[tarefa.status]}">${ROTULOS_DE_STATUS[tarefa.status]}</span>
+			<span class="titulo-da-tarefa">${escaparHtml(tarefa.titulo)}</span>
+			<span class="texto-suave">${escaparHtml(nomesDosResponsaveis(tarefa))}</span>
+			<div class="espacador"></div>
+			${pendentes.length > 0 ? `<span class="selo selo-aviso" title="Aguardando: ${escaparHtml(pendentes.map(d => d.titulo).join(', '))}">${ICONE_AGUARDANDO}aguarda ${pendentes.length}</span>` : ''}
+			<span class="${prazoVencido ? 'prazo-vencido' : 'texto-suave'}">${tarefa.prazo ? formatarData(tarefa.prazo) : 'Sem prazo'}</span>
+		</li>
+	`;
+}
+
+function renderizarLinhaDoTempo() {
+	const contentor = document.getElementById('linha-do-tempo');
+	if (!tarefas) {
+		return;
+	}
+	const grupos = agruparParaLinhaDoTempo(tarefas);
+	const gruposComTarefas = GRUPOS_DA_LINHA_DO_TEMPO.filter(g => grupos[g.chave].length > 0);
+
+	if (gruposComTarefas.length === 0) {
+		contentor.innerHTML = '<p class="texto-suave">Nenhuma tarefa em aberto — tudo concluído por aqui.</p>';
+		return;
+	}
+
+	contentor.innerHTML = gruposComTarefas.map(g => `
+		<div class="grupo-da-linha-do-tempo">
+			<h3 class="titulo-do-grupo-da-linha ${g.chave === 'atrasadas' ? 'titulo-atrasado' : ''}">${g.rotulo} <span>${grupos[g.chave].length}</span></h3>
+			<ul class="lista-da-linha-do-tempo">${grupos[g.chave].map(montarItemDaLinhaDoTempo).join('')}</ul>
+		</div>
+	`).join('');
+
+	contentor.querySelectorAll('.item-da-linha-do-tempo').forEach(item => {
+		item.addEventListener('click', () => {
+			const tarefa = tarefas.find(t => t.id === Number(item.dataset.id));
+			abrirDialogoDeTarefa(tarefa);
+		});
+	});
+}
+
 /* ---------- dialogo de tarefa ---------- */
 
 const dialogoTarefa = document.getElementById('dialogo-tarefa');
@@ -281,6 +389,30 @@ function responsaveisSelecionados() {
 		.map(caixa => ({ id: Number(caixa.value) }));
 }
 
+/** Lista de checkboxes com as outras tarefas do projeto, para marcar como dependencia. */
+function preencherListaDeDependencias(tarefaIdAtual, idsSelecionados, desabilitado) {
+	const lista = document.getElementById('lista-de-dependencias');
+	const opcoes = tarefas.filter(t => t.id !== tarefaIdAtual);
+	if (opcoes.length === 0) {
+		lista.innerHTML = '<p class="aviso-vazio-secao">Nenhuma outra tarefa no projeto ainda.</p>';
+		return;
+	}
+	lista.innerHTML = opcoes.map(t => `
+		<label class="item-selecionavel">
+			<input type="checkbox" value="${t.id}"
+				${idsSelecionados.includes(t.id) ? 'checked' : ''}
+				${desabilitado ? 'disabled' : ''}>
+			${escaparHtml(t.titulo)} <span class="texto-suave">(${ROTULOS_DE_STATUS[t.status]})</span>
+		</label>
+	`).join('');
+}
+
+/** Le os ids marcados na lista de checkboxes de dependencias. */
+function dependenciasSelecionadas() {
+	return Array.from(document.querySelectorAll('#lista-de-dependencias input:checked'))
+		.map(caixa => ({ id: Number(caixa.value) }));
+}
+
 function abrirDialogoDeTarefa(tarefa) {
 	tarefaEmEdicao = tarefa || null;
 	const criando = !tarefa;
@@ -290,16 +422,19 @@ function abrirDialogoDeTarefa(tarefa) {
 	document.getElementById('tarefa-prazo').value = criando ? '' : (tarefa.prazo || '');
 	document.getElementById('tarefa-prioridade').value = criando ? 'MEDIA' : tarefa.prioridade;
 
-	// a lista de responsaveis so aparece para o Gestor (unico papel que cria/edita tarefas)
+	// a lista de responsaveis e de dependencias so aparece para o Gestor (unico papel que cria/edita tarefas)
 	document.getElementById('rotulo-responsaveis').hidden = !souGestor();
+	document.getElementById('rotulo-dependencias').hidden = !souGestor();
 
-	// editar o CONTEUDO da tarefa (titulo/descricao/prazo/prioridade/responsaveis)
+	// editar o CONTEUDO da tarefa (titulo/descricao/prazo/prioridade/responsaveis/dependencias)
 	// e exclusivo do Gestor (RF-03.2/RF-03.3) — o Membro so movimenta a propria
 	// tarefa no quadro (drag-and-drop) e colabora via comentarios/anexos (RF-07)
 	const podeEditarConteudo = souGestor() && projeto.status === 'ATIVO';
 	if (souGestor()) {
 		const idsAtuais = tarefa && tarefa.responsaveis ? tarefa.responsaveis.map(r => r.id) : [];
 		preencherListaDeResponsaveis(idsAtuais, !podeEditarConteudo);
+		const idsDasDependencias = tarefa && tarefa.dependencias ? tarefa.dependencias.map(d => d.id) : [];
+		preencherListaDeDependencias(criando ? null : tarefa.id, idsDasDependencias, !podeEditarConteudo);
 	}
 	['tarefa-titulo', 'tarefa-descricao', 'tarefa-prazo', 'tarefa-prioridade'].forEach(id => {
 		document.getElementById(id).disabled = !podeEditarConteudo;
@@ -337,6 +472,7 @@ document.getElementById('formulario-tarefa').addEventListener('submit', async (e
 	};
 	if (souGestor()) {
 		corpo.responsaveis = responsaveisSelecionados();
+		corpo.dependencias = dependenciasSelecionadas();
 	}
 	try {
 		if (tarefaEmEdicao) {
@@ -668,7 +804,7 @@ async function carregarRelatorios() {
 			</div>
 			<pre>${escaparHtml(relatorio.conteudo)}</pre>
 			${relatorio.transcricaoAudio
-				? `<div class="narracao">🎙️ <strong>Observação narrada:</strong> ${escaparHtml(relatorio.transcricaoAudio)}</div>`
+				? `<div class="narracao">${ICONE_MICROFONE}<strong>Observação narrada:</strong> ${escaparHtml(relatorio.transcricaoAudio)}</div>`
 				: ''}
 		</article>
 	`).join('');
@@ -727,11 +863,11 @@ document.getElementById('botao-gravar').addEventListener('click', async () => {
 			reprodutor.hidden = false;
 			document.getElementById('botao-transcrever').hidden = false;
 			document.getElementById('indicador-de-gravacao').hidden = true;
-			document.getElementById('botao-gravar').textContent = '🎙️ Gravar de novo';
+			document.getElementById('botao-gravar').innerHTML = ICONE_MICROFONE + 'Gravar de novo';
 		};
 		gravador.start();
 		document.getElementById('indicador-de-gravacao').hidden = false;
-		document.getElementById('botao-gravar').textContent = '⏹️ Parar gravação';
+		document.getElementById('botao-gravar').innerHTML = ICONE_PARAR + 'Parar gravação';
 	} catch (erro) {
 		exibirMensagem('Não foi possível acessar o microfone. Verifique a permissão do navegador.', 'erro');
 	}
@@ -774,6 +910,55 @@ document.getElementById('botao-gerar-relatorio').addEventListener('click', async
 		exibirMensagem(erro.message, 'erro');
 	}
 });
+
+/* ---------- desempenho: carga de trabalho e eficiencia da equipe (Gestor) ---------- */
+/* Painel so de leitura: nada aqui e escrito pelo usuario, so agregado a
+   partir das tarefas do projeto (responsaveis, status, prazo, conclusao). */
+
+/** "2,3 dias" — nulo (sem tarefas concluidas ainda) vira travessao. */
+function formatarDias(dias) {
+	return dias === null || dias === undefined ? '—' : dias.toFixed(1).replace('.', ',') + ' dias';
+}
+
+/** "+3,0 dias adiantado" / "−1,5 dias de atraso" / "no prazo exato". */
+function formatarEficiencia(dias) {
+	if (dias === null || dias === undefined) {
+		return '<span class="texto-suave">—</span>';
+	}
+	const arredondado = Math.abs(dias).toFixed(1).replace('.', ',');
+	if (dias > 0.05) {
+		return '<span class="eficiencia-adiantada">+' + arredondado + ' dias adiantado</span>';
+	}
+	if (dias < -0.05) {
+		return '<span class="eficiencia-atrasada">−' + arredondado + ' dias de atraso</span>';
+	}
+	return 'no prazo exato';
+}
+
+async function carregarDesempenho() {
+	try {
+		const dados = await chamarApi('/projetos/' + projetoId + '/desempenho');
+
+		document.getElementById('resumo-progresso').textContent = dados.resumo.progresso + '%';
+		document.getElementById('resumo-no-prazo').textContent =
+			dados.resumo.percentualNoPrazo === null ? '—' : dados.resumo.percentualNoPrazo + '%';
+		document.getElementById('resumo-bloqueadas').textContent = dados.resumo.tarefasBloqueadas;
+
+		document.getElementById('aviso-sem-membros-desempenho').hidden = dados.porMembro.length > 0;
+		document.getElementById('corpo-da-tabela-de-desempenho').innerHTML = dados.porMembro.map(linha => `
+			<tr>
+				<td>${escaparHtml(linha.usuario.nome)}</td>
+				<td>${linha.concluidas}</td>
+				<td>${linha.emAberto}</td>
+				<td>${linha.atrasadas > 0 ? '<span class="prazo-vencido">' + linha.atrasadas + '</span>' : linha.atrasadas}</td>
+				<td>${formatarDias(linha.tempoMedioDeConclusaoEmDias)}</td>
+				<td>${formatarEficiencia(linha.eficienciaMediaEmDias)}</td>
+			</tr>
+		`).join('');
+	} catch (erro) {
+		exibirMensagem(erro.message, 'erro');
+	}
+}
 
 /* ---------- inicializacao ---------- */
 

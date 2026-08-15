@@ -57,8 +57,12 @@
 				<input type="email" id="cadastrar-email" required autocomplete="email">
 			</label>
 			<label>Senha
-				<input type="password" id="cadastrar-senha" required minlength="6" autocomplete="new-password">
+				<input type="password" id="cadastrar-senha" required minlength="8" autocomplete="new-password">
 			</label>
+			<div class="medidor-de-senha" id="medidor-de-senha" hidden>
+				<div class="barra-de-forca"><div id="barra-de-forca-preenchimento"></div></div>
+				<p class="texto-suave" id="texto-forca-da-senha"></p>
+			</div>
 			<button type="submit" class="botao-principal botao-largo">Criar conta</button>
 		</form>
 

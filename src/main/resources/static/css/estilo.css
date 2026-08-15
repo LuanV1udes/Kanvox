@@ -381,6 +381,35 @@ button:focus-visible {
 	font-size: 0.88rem;
 }
 
+/* ---------- forca da senha no cadastro (RF-01.1 / RNF-02) ---------- */
+
+.medidor-de-senha {
+	margin: -0.6rem 0 1rem;
+}
+
+.barra-de-forca {
+	height: 5px;
+	background: var(--cor-borda);
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.barra-de-forca > div {
+	height: 100%;
+	width: 0;
+	border-radius: 999px;
+	transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.forca-muito-fraca, .forca-fraca { background: var(--cor-perigo); }
+.forca-razoavel { background: var(--cor-aviso); }
+.forca-boa { background: var(--cor-info); }
+.forca-forte { background: var(--cor-sucesso); }
+
+#texto-forca-da-senha {
+	margin: 0.4rem 0 0;
+}
+
 /* abas sublinhadas, sem caixa nem fundo */
 .abas {
 	display: flex;
@@ -710,70 +739,48 @@ button.usuario:hover .nome-do-usuario {
 
 /* ---------- selos de status e de papel ---------- */
 
+/* Preenchido solido: fundo na cor do estado, texto sempre em --cor-sobre-estado
+   (branco no tema claro, quase preto no escuro — mesmo par usado em .mensagem-flutuante). */
 .selo {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.35rem;
-	padding: 0.18rem 0.55rem;
-	border: 1px solid var(--cor-borda);
+	padding: 0.2rem 0.6rem;
+	border: none;
 	border-radius: 6px;
-	background: var(--cor-superficie-suave);
-	color: var(--cor-tinta-media);
+	background: var(--cor-tinta-media);
+	color: var(--cor-sobre-estado);
 	font-size: 0.75rem;
 	font-weight: 600;
 	white-space: nowrap;
 }
 
-.selo::before {
-	content: "";
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: currentColor;
-	opacity: 0.8;
-}
-
 .selo-ativo {
-	color: var(--cor-sucesso);
-	background: var(--cor-sucesso-suave);
-	border-color: var(--cor-sucesso-borda);
+	background: var(--cor-sucesso);
 }
 
 .selo-encerrado {
-	color: var(--cor-tinta-suave);
-	background: var(--cor-superficie-suave);
-	border-color: var(--cor-borda);
+	background: var(--cor-tinta-media);
 }
 
 .selo-gestor {
-	color: var(--cor-acento);
-	background: var(--cor-acento-suave);
-	border-color: var(--cor-acento-borda);
+	background: var(--cor-acento);
 }
 
 .selo-membro {
-	color: var(--cor-info);
-	background: var(--cor-info-suave);
-	border-color: var(--cor-info-borda);
+	background: var(--cor-info);
 }
 
 .selo-observador {
-	color: var(--cor-aviso);
-	background: var(--cor-aviso-suave);
-	border-color: var(--cor-aviso-borda);
+	background: var(--cor-aviso);
 }
 
 /* selos de alerta na visao geral do projeto: tarefas bloqueadas/atrasadas (RF-02.3) */
 .selo-perigo {
-	color: var(--cor-perigo);
-	background: var(--cor-perigo-suave);
-	border-color: var(--cor-perigo-borda);
+	background: var(--cor-perigo);
 }
 
 .selo-aviso {
-	color: var(--cor-aviso);
-	background: var(--cor-aviso-suave);
-	border-color: var(--cor-aviso-borda);
+	background: var(--cor-aviso);
 }
 
 /* ---------- barra de progresso (RF-02.3) ---------- */
@@ -1056,6 +1063,13 @@ button.usuario:hover .nome-do-usuario {
 	color: var(--cor-tinta-suave);
 }
 
+/* tarefa presa esperando outra(s) terminarem (dependencia) */
+.aviso-dependencia {
+	margin-top: 0.5rem;
+	font-size: 0.74rem;
+	color: var(--cor-aviso);
+}
+
 .prazo-vencido {
 	color: var(--cor-perigo);
 	font-weight: 700;
@@ -1155,6 +1169,144 @@ button.usuario:hover .nome-do-usuario {
 	border-radius: var(--raio-pequeno);
 	font-size: 0.875rem;
 	color: var(--cor-tinta-media);
+}
+
+/* ---------- linha do tempo: tarefas em aberto organizadas por prazo ---------- */
+
+.grupo-da-linha-do-tempo {
+	margin-bottom: 1.6rem;
+}
+
+.titulo-do-grupo-da-linha {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0 0 0.7rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid var(--cor-borda);
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--cor-tinta-suave);
+}
+
+.titulo-do-grupo-da-linha.titulo-atrasado {
+	color: var(--cor-perigo);
+}
+
+.titulo-do-grupo-da-linha span {
+	padding: 0.05rem 0.45rem;
+	background: var(--cor-superficie-suave);
+	border-radius: 999px;
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+.lista-da-linha-do-tempo {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.item-da-linha-do-tempo {
+	display: flex;
+	align-items: center;
+	gap: 0.8rem;
+	flex-wrap: wrap;
+	padding: 0.7rem 0.9rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-pequeno);
+	cursor: pointer;
+	transition: border-color 0.15s, background-color 0.15s;
+}
+
+.item-da-linha-do-tempo:hover {
+	border-color: var(--cor-borda-forte);
+	background: var(--cor-superficie-hover);
+}
+
+.item-da-linha-do-tempo .titulo-da-tarefa {
+	font-weight: 600;
+	font-size: 0.9rem;
+}
+
+.item-da-linha-do-tempo .espacador {
+	flex: 1;
+}
+
+/* ---------- desempenho: carga de trabalho e eficiencia da equipe ---------- */
+
+.grade-de-resumo {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 1rem;
+	margin-bottom: 1.8rem;
+}
+
+.cartao-de-resumo {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 1.1rem 1.2rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio);
+}
+
+.valor-do-resumo {
+	font-size: 1.7rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+
+.rotulo-do-resumo {
+	color: var(--cor-tinta-suave);
+	font-size: 0.82rem;
+}
+
+.tabela-de-desempenho {
+	width: 100%;
+	min-width: 720px;
+	border-collapse: collapse;
+	font-size: 0.88rem;
+}
+
+.tabela-de-desempenho th {
+	padding: 0 0 0.6rem;
+	border-bottom: 1px solid var(--cor-borda);
+	text-align: left;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--cor-tinta-suave);
+}
+
+.tabela-de-desempenho td {
+	padding: 0.75rem 0;
+	border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-de-desempenho th:not(:first-child),
+.tabela-de-desempenho td:not(:first-child) {
+	padding-left: 1.2rem;
+}
+
+.tabela-de-desempenho tbody tr:last-child td {
+	border-bottom: none;
+}
+
+.eficiencia-adiantada {
+	color: var(--cor-sucesso);
+}
+
+.eficiencia-atrasada {
+	color: var(--cor-perigo);
 }
 
 /* ---------- dialogos ---------- */
@@ -1392,6 +1544,20 @@ dialog::backdrop {
 .item-selecionavel input {
 	width: auto;
 	margin: 0;
+}
+
+.campo-de-ajuda {
+	margin: 0.4rem 0 0;
+	font-size: 0.78rem;
+}
+
+/* icone desenhado junto com texto (botao de gravar, badge de dependencia...) */
+.icone-inline {
+	width: 1em;
+	height: 1em;
+	margin-right: 0.35em;
+	vertical-align: -0.15em;
+	flex-shrink: 0;
 }
 
 /* ---------- gravacao de audio (RF-05.1) ---------- */

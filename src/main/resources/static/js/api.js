@@ -96,3 +96,64 @@ function escaparHtml(texto) {
 	div.textContent = texto == null ? '' : String(texto);
 	return div.innerHTML;
 }
+
+/* ---------- forca de senha (RNF-02) ----------
+   Usado no cadastro (autenticacao.js) e na troca de senha do perfil
+   (navegacao.js) — os dois lugares onde o usuario escolhe uma senha nova.
+   A redefinicao por e-mail fica de fora de proposito (exige so 6 caracteres). */
+
+const NIVEIS_DE_FORCA = [
+	{ minimo: 0, rotulo: 'Muito fraca', classe: 'forca-muito-fraca' },
+	{ minimo: 2, rotulo: 'Fraca', classe: 'forca-fraca' },
+	{ minimo: 3, rotulo: 'Razoável', classe: 'forca-razoavel' },
+	{ minimo: 4, rotulo: 'Boa', classe: 'forca-boa' },
+	{ minimo: 5, rotulo: 'Forte', classe: 'forca-forte' }
+];
+
+/** Confere 5 criterios de senha forte e devolve a pontuacao e o que ainda falta. */
+function avaliarForcaDaSenha(senha) {
+	const criterios = [
+		{ atende: senha.length >= 8, rotulo: 'pelo menos 8 caracteres' },
+		{ atende: /[a-z]/.test(senha), rotulo: 'uma letra minúscula' },
+		{ atende: /[A-Z]/.test(senha), rotulo: 'uma letra maiúscula' },
+		{ atende: /[0-9]/.test(senha), rotulo: 'um número' },
+		{ atende: /[^A-Za-z0-9]/.test(senha), rotulo: 'um caractere especial (ex.: ! @ # $)' }
+	];
+	return {
+		pontuacao: criterios.filter(c => c.atende).length,
+		comprimentoOk: criterios[0].atende,
+		faltando: criterios.filter(c => !c.atende).map(c => c.rotulo)
+	};
+}
+
+/** Senha minima aceita para cadastro/troca: pelo menos "Razoável" (RNF-02, mesma regra do backend). */
+function senhaAtendeOMinimo(senha) {
+	const { pontuacao, comprimentoOk } = avaliarForcaDaSenha(senha);
+	return comprimentoOk && pontuacao >= 3;
+}
+
+/**
+ * Liga um campo de senha a um medidor de forca visual (barra + texto do que
+ * falta), atualizado a cada tecla digitada. idDoMedidor e o contêiner que
+ * fica escondido enquanto o campo está vazio.
+ */
+function ligarMedidorDeForca(idDoCampo, idDoMedidor, idDaBarra, idDoTexto) {
+	const campo = document.getElementById(idDoCampo);
+	const medidor = document.getElementById(idDoMedidor);
+	const barra = document.getElementById(idDaBarra);
+	const texto = document.getElementById(idDoTexto);
+	campo.addEventListener('input', () => {
+		const senha = campo.value;
+		medidor.hidden = senha.length === 0;
+		if (senha.length === 0) {
+			return;
+		}
+		const { pontuacao, faltando } = avaliarForcaDaSenha(senha);
+		const nivel = [...NIVEIS_DE_FORCA].reverse().find(n => pontuacao >= n.minimo);
+		barra.style.width = (pontuacao / 5 * 100) + '%';
+		barra.className = nivel.classe;
+		texto.textContent = faltando.length === 0
+			? 'Força: ' + nivel.rotulo + ' — sua senha está ótima!'
+			: 'Força: ' + nivel.rotulo + ' — falta incluir ' + faltando.join(', ') + '.';
+	});
+}

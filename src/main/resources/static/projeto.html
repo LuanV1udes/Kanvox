@@ -101,6 +101,60 @@
 				<p class="texto-suave" id="aviso-sem-relatorios" hidden>Nenhum relatório gerado ainda.</p>
 			</section>
 
+			<!-- ---------- visao: linha do tempo ---------- -->
+			<section data-conteudo-da-visao="linha-do-tempo" hidden>
+				<div class="topo-da-pagina">
+					<div>
+						<h1>Linha do tempo</h1>
+						<p class="texto-suave">Tarefas em aberto, organizadas por prazo.</p>
+					</div>
+				</div>
+
+				<div id="linha-do-tempo"></div>
+			</section>
+
+			<!-- ---------- visao: desempenho (exclusiva do Gestor) ---------- -->
+			<section data-conteudo-da-visao="desempenho" hidden>
+				<div class="topo-da-pagina">
+					<div>
+						<h1>Desempenho</h1>
+						<p class="texto-suave">Carga de trabalho e eficiência de entrega da equipe — visão do Gestor, não é um ranking.</p>
+					</div>
+				</div>
+
+				<div class="grade-de-resumo">
+					<div class="cartao-de-resumo">
+						<span class="valor-do-resumo" id="resumo-progresso">—</span>
+						<span class="rotulo-do-resumo">Progresso geral</span>
+					</div>
+					<div class="cartao-de-resumo">
+						<span class="valor-do-resumo" id="resumo-no-prazo">—</span>
+						<span class="rotulo-do-resumo">Entregas dentro do prazo</span>
+					</div>
+					<div class="cartao-de-resumo">
+						<span class="valor-do-resumo" id="resumo-bloqueadas">—</span>
+						<span class="rotulo-do-resumo">Tarefas bloqueadas agora</span>
+					</div>
+				</div>
+
+				<div class="rolagem-do-quadro">
+					<table class="tabela-de-desempenho">
+						<thead>
+							<tr>
+								<th>Membro</th>
+								<th>Concluídas</th>
+								<th>Em aberto</th>
+								<th>Atrasadas</th>
+								<th>Tempo médio de conclusão</th>
+								<th>Eficiência de entrega</th>
+							</tr>
+						</thead>
+						<tbody id="corpo-da-tabela-de-desempenho"></tbody>
+					</table>
+				</div>
+				<p class="texto-suave aviso-vazio-secao" id="aviso-sem-membros-desempenho" hidden>Nenhum membro no projeto ainda.</p>
+			</section>
+
 		</main>
 	</div>
 
@@ -127,6 +181,11 @@
 			<div id="rotulo-responsaveis" class="campo-de-responsaveis">
 				<label>Responsáveis</label>
 				<div class="lista-de-selecao" id="lista-de-responsaveis"></div>
+			</div>
+			<div id="rotulo-dependencias" class="campo-de-responsaveis">
+				<label>Depende de</label>
+				<div class="lista-de-selecao" id="lista-de-dependencias"></div>
+				<p class="texto-suave campo-de-ajuda">Só sai de "A Fazer" quando essas tarefas estiverem concluídas.</p>
 			</div>
 			<div class="acoes-do-dialogo">
 				<button type="button" class="botao-perigo" id="botao-excluir-tarefa" hidden>Excluir</button>
@@ -183,7 +242,7 @@
 			Se quiser, grave uma narração: o áudio é transcrito e você revisa o texto antes de salvar.
 		</p>
 		<div class="area-de-gravacao">
-			<button type="button" class="botao-secundario botao-compacto" id="botao-gravar">🎙️ Gravar narração</button>
+			<button type="button" class="botao-secundario botao-compacto" id="botao-gravar"><svg class="icone-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"></rect><path d="M5 10v1a7 7 0 0 0 14 0v-1"></path><path d="M12 18v4M8 22h8"></path></svg>Gravar narração</button>
 			<span id="indicador-de-gravacao" class="gravando" hidden>gravando… clique para parar</span>
 			<audio id="audio-gravado" controls hidden></audio>
 			<div class="acoes-da-gravacao">

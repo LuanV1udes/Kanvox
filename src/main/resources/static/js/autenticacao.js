@@ -95,8 +95,19 @@ formularioEntrar.addEventListener('submit', async (evento) => {
 	}
 });
 
+/* ---------- forca da senha no cadastro (RF-01.1 / RNF-02) ---------- */
+/* avaliarForcaDaSenha, senhaAtendeOMinimo e ligarMedidorDeForca vem de
+   api.js — a mesma barra e reaproveitada na troca de senha do perfil. */
+
+const campoSenhaCadastro = document.getElementById('cadastrar-senha');
+ligarMedidorDeForca('cadastrar-senha', 'medidor-de-senha', 'barra-de-forca-preenchimento', 'texto-forca-da-senha');
+
 formularioCadastrar.addEventListener('submit', async (evento) => {
 	evento.preventDefault();
+	if (!senhaAtendeOMinimo(campoSenhaCadastro.value)) {
+		mostrarErro('Escolha uma senha mais forte: combine letras maiúsculas, minúsculas, números ou símbolos, com pelo menos 8 caracteres.');
+		return;
+	}
 	try {
 		const email = document.getElementById('cadastrar-email').value;
 		const senha = document.getElementById('cadastrar-senha').value;

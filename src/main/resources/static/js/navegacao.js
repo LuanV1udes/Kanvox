@@ -20,7 +20,9 @@ const ICONES = {
 	projetos: '<rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect>',
 	quadro: '<rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18M15 3v18"></path>',
 	membros: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
-	relatorios: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M16 13H8M16 17H8"></path>'
+	relatorios: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M16 13H8M16 17H8"></path>',
+	desempenho: '<path d="M3 3v18h18"></path><rect x="7" y="13" width="3" height="5"></rect><rect x="12" y="9" width="3" height="9"></rect><rect x="17" y="5" width="3" height="13"></rect>',
+	linhadotempo: '<rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path>'
 };
 
 function icone(nome) {
@@ -39,9 +41,11 @@ function iniciaisDoNome(nome) {
 /**
  * Monta a barra lateral dentro do elemento <aside id="barra-lateral">.
  *
- * itensDoProjeto (opcional): lista de { visao, rotulo, icone } com as
- *   secoes da pagina do projeto. Cada item vira um botao que mostra a
- *   secao correspondente da pagina.
+ * itensDoProjeto (opcional): lista de { visao, rotulo, icone, somenteGestor }
+ *   com as secoes da pagina do projeto. Cada item vira um botao que mostra
+ *   a secao correspondente da pagina. Itens com somenteGestor comecam
+ *   escondidos (evita o "flash" da aba antes do papel do usuario ser
+ *   conhecido) — quem exibe de volta e ajustarPermissoesDaTela() em projeto.js.
  * aoTrocarDeVisao (opcional): funcao chamada com o nome da visao
  *   escolhida, para a pagina reagir a troca.
  */
@@ -66,7 +70,7 @@ function montarNavegacao(itensDoProjeto, aoTrocarDeVisao) {
 				<p class="rotulo-do-grupo">Projeto</p>
 				<div class="grupo-de-navegacao">
 					${itens.map((item, indice) => `
-						<button type="button" class="item-de-navegacao ${indice === 0 ? 'ativo' : ''}" data-visao="${item.visao}">
+						<button type="button" class="item-de-navegacao ${indice === 0 ? 'ativo' : ''}" data-visao="${item.visao}" ${item.somenteGestor ? 'hidden' : ''}>
 							${icone(item.icone)}<span>${escaparHtml(item.rotulo)}</span>
 						</button>
 					`).join('')}
@@ -214,11 +218,15 @@ function garantirDialogoDePerfil() {
 			<p class="titulo-da-secao">Trocar senha</p>
 			<form id="formulario-perfil-senha">
 				<label>Senha atual
-					<input type="password" id="perfil-senha-atual" required minlength="6">
+					<input type="password" id="perfil-senha-atual" required>
 				</label>
-				<label>Nova senha (mínimo 6 caracteres)
-					<input type="password" id="perfil-senha-nova" required minlength="6">
+				<label>Nova senha
+					<input type="password" id="perfil-senha-nova" required minlength="8">
 				</label>
+				<div class="medidor-de-senha" id="perfil-medidor-de-senha" hidden>
+					<div class="barra-de-forca"><div id="perfil-barra-de-forca-preenchimento"></div></div>
+					<p class="texto-suave" id="perfil-texto-forca-da-senha"></p>
+				</div>
 				<button type="submit" class="botao-secundario botao-compacto">Trocar senha</button>
 			</form>
 
@@ -230,6 +238,8 @@ function garantirDialogoDePerfil() {
 
 	const dialogo = document.getElementById('dialogo-perfil');
 	document.getElementById('botao-fechar-perfil').addEventListener('click', () => dialogo.close());
+	ligarMedidorDeForca('perfil-senha-nova', 'perfil-medidor-de-senha',
+		'perfil-barra-de-forca-preenchimento', 'perfil-texto-forca-da-senha');
 
 	document.getElementById('formulario-perfil-nome').addEventListener('submit', async (evento) => {
 		evento.preventDefault();
@@ -250,15 +260,21 @@ function garantirDialogoDePerfil() {
 
 	document.getElementById('formulario-perfil-senha').addEventListener('submit', async (evento) => {
 		evento.preventDefault();
+		const novaSenha = document.getElementById('perfil-senha-nova').value;
+		if (!senhaAtendeOMinimo(novaSenha)) {
+			exibirMensagem('Escolha uma senha mais forte: combine letras maiúsculas, minúsculas, números ou símbolos, com pelo menos 8 caracteres.', 'erro');
+			return;
+		}
 		try {
 			await chamarApi('/autenticacao/senha', {
 				method: 'PUT',
 				body: {
 					senhaAtual: document.getElementById('perfil-senha-atual').value,
-					novaSenha: document.getElementById('perfil-senha-nova').value
+					novaSenha: novaSenha
 				}
 			});
 			evento.target.reset();
+			document.getElementById('perfil-medidor-de-senha').hidden = true;
 			exibirMensagem('Senha alterada com sucesso!', 'sucesso');
 		} catch (erro) {
 			exibirMensagem(erro.message, 'erro');
@@ -277,5 +293,6 @@ function abrirDialogoDePerfil() {
 	document.getElementById('perfil-nome').value = usuario.nome;
 	document.getElementById('perfil-email').value = usuario.email;
 	document.getElementById('formulario-perfil-senha').reset();
+	document.getElementById('perfil-medidor-de-senha').hidden = true;
 	document.getElementById('dialogo-perfil').showModal();
 }
