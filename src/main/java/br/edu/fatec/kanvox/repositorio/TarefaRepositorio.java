@@ -26,4 +26,11 @@ public interface TarefaRepositorio extends JpaRepository<Tarefa, Long> {
 			+ " and t.projeto.status = br.edu.fatec.kanvox.modelo.StatusProjeto.ATIVO")
 	List<Tarefa> buscarAtrasadas(@Param("hoje") LocalDate hoje);
 
+	/**
+	 * Tarefas que tem a tarefa informada como dependencia — usado para limpar
+	 * a referencia antes de excluir (senao a chave estrangeira impede).
+	 */
+	@Query("select t from Tarefa t join t.dependencias d where d.id = :tarefaId")
+	List<Tarefa> buscarQueDependemDe(@Param("tarefaId") Long tarefaId);
+
 }

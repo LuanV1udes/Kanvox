@@ -54,6 +54,15 @@ public class Tarefa {
 			inverseJoinColumns = @JoinColumn(name = "usuario_id"))
 	private List<Usuario> responsaveis = new ArrayList<>();
 
+	// Tabela de juncao auto-referenciada: uma tarefa pode depender de varias
+	// outras tarefas do mesmo projeto. So sai de "A Fazer" quando todas as
+	// dependencias estiverem concluidas (TarefaServico valida isso).
+	@ManyToMany
+	@JoinTable(name = "tarefa_dependencia",
+			joinColumns = @JoinColumn(name = "tarefa_id"),
+			inverseJoinColumns = @JoinColumn(name = "depende_de_id"))
+	private List<Tarefa> dependencias = new ArrayList<>();
+
 	private LocalDate prazo;
 
 	@Enumerated(EnumType.STRING)
@@ -116,6 +125,14 @@ public class Tarefa {
 
 	public void setResponsaveis(List<Usuario> responsaveis) {
 		this.responsaveis = responsaveis;
+	}
+
+	public List<Tarefa> getDependencias() {
+		return dependencias;
+	}
+
+	public void setDependencias(List<Tarefa> dependencias) {
+		this.dependencias = dependencias;
 	}
 
 	public LocalDate getPrazo() {

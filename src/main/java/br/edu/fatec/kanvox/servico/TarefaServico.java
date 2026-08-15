@@ -2,6 +2,7 @@ package br.edu.fatec.kanvox.servico;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -88,6 +89,7 @@ public class TarefaServico {
 			novaTarefa.setPrioridade(dadosRecebidos.getPrioridade());
 		}
 		novaTarefa.setResponsaveis(validarResponsaveis(projetoId, dadosRecebidos.getResponsaveis()));
+		novaTarefa.setDependencias(validarDependencias(projetoId, null, dadosRecebidos.getDependencias()));
 		Tarefa tarefaSalva = tarefaRepositorio.save(novaTarefa);
 		notificarAtribuicao(tarefaSalva, tarefaSalva.getResponsaveis(), usuarioLogado);
 		historicoTarefaServico.registrar(tarefaSalva, usuarioLogado, "Criou a tarefa.");
@@ -115,6 +117,10 @@ public class TarefaServico {
 						.noneMatch(atual -> atual.getId().equals(usuario.getId())))
 				.toList();
 
+		List<Tarefa> novasDependencias = validarDependencias(tarefa.getProjeto().getId(), tarefa.getId(),
+				dadosRecebidos.getDependencias());
+		validarSemCiclo(tarefa, novasDependencias);
+
 		// monta o resumo do que mudou ANTES de sobrescrever os valores atuais (historico)
 		List<String> camposAlterados = new ArrayList<>();
 		if (!Objects.equals(tarefa.getTitulo(), dadosRecebidos.getTitulo())) {
@@ -132,6 +138,9 @@ public class TarefaServico {
 		if (!mesmosResponsaveis(tarefa.getResponsaveis(), novosResponsaveis)) {
 			camposAlterados.add("responsáveis");
 		}
+		if (!mesmasTarefas(tarefa.getDependencias(), novasDependencias)) {
+			camposAlterados.add("dependências");
+		}
 
 		// prazo alterado: a rotina de atrasos volta a avaliar esta tarefa (RF-06.2)
 		if (!Objects.equals(tarefa.getPrazo(), dadosRecebidos.getPrazo())) {
@@ -143,6 +152,7 @@ public class TarefaServico {
 		tarefa.setPrazo(dadosRecebidos.getPrazo());
 		tarefa.setPrioridade(dadosRecebidos.getPrioridade());
 		tarefa.setResponsaveis(novosResponsaveis);
+		tarefa.setDependencias(novasDependencias);
 		Tarefa tarefaSalva = tarefaRepositorio.save(tarefa);
 
 		if (!responsaveisAdicionados.isEmpty()) {
@@ -163,6 +173,18 @@ public class TarefaServico {
 
 		StatusTarefa statusAnterior = tarefa.getStatus();
 		StatusTarefa novoStatus = converterStatus(status);
+
+		// so sai de "A Fazer" quando todas as dependencias estiverem concluidas
+		if (novoStatus != StatusTarefa.A_FAZER) {
+			List<String> pendentes = tarefa.getDependencias().stream()
+					.filter(dependencia -> dependencia.getStatus() != StatusTarefa.CONCLUIDO)
+					.map(Tarefa::getTitulo)
+					.toList();
+			if (!pendentes.isEmpty()) {
+				throw new RegraDeNegocioExcecao("Esta tarefa depende de \"" + String.join("\", \"", pendentes)
+						+ "\", que ainda nao " + (pendentes.size() == 1 ? "foi concluida" : "foram concluidas") + ".");
+			}
+		}
 
 		// RF-03.7: concluir e desfazer a conclusao sao decisoes do Gestor —
 		// o Membro entrega o trabalho movendo a tarefa para Em Revisao
@@ -213,8 +235,14 @@ public class TarefaServico {
 			throw new PermissaoNegadaExcecao("Somente o Gestor do projeto pode excluir tarefas.");
 		}
 		validarProjetoAtivo(tarefa.getProjeto());
-		// remove o historico antes, senao a chave estrangeira (tarefa_id) impede a exclusao
+		// remove o historico e as referencias de quem depende desta tarefa antes,
+		// senao a chave estrangeira impede a exclusao
 		historicoTarefaServico.excluirDaTarefa(tarefaId);
+		List<Tarefa> dependentes = tarefaRepositorio.buscarQueDependemDe(tarefaId);
+		for (Tarefa dependente : dependentes) {
+			dependente.getDependencias().removeIf(dependencia -> dependencia.getId().equals(tarefaId));
+		}
+		tarefaRepositorio.saveAll(dependentes);
 		tarefaRepositorio.delete(tarefa);
 	}
 
@@ -314,6 +342,69 @@ public class TarefaServico {
 		Set<Long> idsAtuais = atuais.stream().map(Usuario::getId).collect(Collectors.toSet());
 		Set<Long> idsNovos = novos.stream().map(Usuario::getId).collect(Collectors.toSet());
 		return idsAtuais.equals(idsNovos);
+	}
+
+	/**
+	 * Valida e resolve a lista de dependencias recebida (nula/vazia = sem
+	 * dependencia). Cada dependencia precisa ser uma tarefa do mesmo projeto,
+	 * diferente da propria tarefa. Ids repetidos sao ignorados.
+	 */
+	private List<Tarefa> validarDependencias(Long projetoId, Long tarefaAtualId, List<Tarefa> recebidas) {
+		if (recebidas == null || recebidas.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Set<Long> idsUnicos = new LinkedHashSet<>();
+		for (Tarefa tarefa : recebidas) {
+			if (tarefa != null && tarefa.getId() != null) {
+				idsUnicos.add(tarefa.getId());
+			}
+		}
+		List<Tarefa> dependencias = new ArrayList<>();
+		for (Long id : idsUnicos) {
+			if (id.equals(tarefaAtualId)) {
+				throw new RegraDeNegocioExcecao("Uma tarefa nao pode depender dela mesma.");
+			}
+			Tarefa dependencia = tarefaRepositorio.findById(id)
+					.orElseThrow(() -> new RegraDeNegocioExcecao("Tarefa de dependencia nao encontrada."));
+			if (!dependencia.getProjeto().getId().equals(projetoId)) {
+				throw new RegraDeNegocioExcecao("A dependencia precisa ser uma tarefa do mesmo projeto.");
+			}
+			dependencias.add(dependencia);
+		}
+		return dependencias;
+	}
+
+	/** Impede que a nova lista de dependencias feche um ciclo (A depende de B que depende de A). */
+	private void validarSemCiclo(Tarefa tarefa, List<Tarefa> novasDependencias) {
+		for (Tarefa dependencia : novasDependencias) {
+			if (alcancavel(dependencia, tarefa.getId(), new HashSet<>())) {
+				throw new RegraDeNegocioExcecao("Essa dependencia criaria um ciclo: \"" + dependencia.getTitulo()
+						+ "\" ja depende, direta ou indiretamente, desta tarefa.");
+			}
+		}
+	}
+
+	/** Percorre a cadeia de dependencias a partir de "origem" procurando "alvoId". */
+	private boolean alcancavel(Tarefa origem, Long alvoId, Set<Long> visitados) {
+		if (origem.getId().equals(alvoId)) {
+			return true;
+		}
+		if (!visitados.add(origem.getId())) {
+			return false;
+		}
+		for (Tarefa dependencia : origem.getDependencias()) {
+			if (alcancavel(dependencia, alvoId, visitados)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Compara duas listas de tarefas pelo conjunto de ids, ignorando a ordem — usado para as dependencias. */
+	private boolean mesmasTarefas(List<Tarefa> atuais, List<Tarefa> novas) {
+		Set<Long> idsAtuais = atuais.stream().map(Tarefa::getId).collect(Collectors.toSet());
+		Set<Long> idsNovas = novas.stream().map(Tarefa::getId).collect(Collectors.toSet());
+		return idsAtuais.equals(idsNovas);
 	}
 
 	private void validarProjetoAtivo(Projeto projeto) {

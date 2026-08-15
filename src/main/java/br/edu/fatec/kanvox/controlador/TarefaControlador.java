@@ -44,8 +44,10 @@ public class TarefaControlador {
 
 	/**
 	 * Cria uma tarefa. Corpo esperado:
-	 * { "titulo": "...", "descricao": "...", "prazo": "2026-08-01", "responsaveis": [{ "id": 2 }] }
-	 * (prazo e responsaveis sao opcionais)
+	 * { "titulo": "...", "descricao": "...", "prazo": "2026-08-01",
+	 *   "responsaveis": [{ "id": 2 }], "dependencias": [{ "id": 7 }] }
+	 * (prazo, responsaveis e dependencias sao opcionais; a tarefa so sai de
+	 * "A Fazer" quando todas as dependencias estiverem concluidas)
 	 */
 	@PostMapping("/projetos/{projetoId}/tarefas")
 	public ResponseEntity<Tarefa> criar(@AuthenticationPrincipal Usuario usuarioLogado,
@@ -54,7 +56,7 @@ public class TarefaControlador {
 		return ResponseEntity.status(HttpStatus.CREATED).body(criada);
 	}
 
-	/** Edita titulo, descricao, prazo e responsaveis (mesmo corpo da criacao). */
+	/** Edita titulo, descricao, prazo, responsaveis e dependencias (mesmo corpo da criacao). */
 	@PutMapping("/tarefas/{tarefaId}")
 	public Tarefa editar(@AuthenticationPrincipal Usuario usuarioLogado,
 			@PathVariable Long tarefaId, @RequestBody Tarefa tarefa) {
