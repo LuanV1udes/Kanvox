@@ -1,7 +1,7 @@
 # Kanvox — Documento de Projeto
 
 > Documento de contexto para desenvolvimento com Claude Code.
-> Última atualização: julho/2026 — decisões técnicas fechadas: perfis por projeto, frontend em HTML/CSS/JS puro, JWT sem refresh token, transcrição com revisão obrigatória.
+> Última atualização: agosto/2026 — núcleo (RF-01 a RF-07) implementado e testado; adicionados desde julho/2026: múltiplos responsáveis e dependência entre tarefas, histórico de atividade e linha do tempo, painel de desempenho da equipe, exportação de relatório em PDF, senha forte, edição de perfil e filtro do quadro. Decisões técnicas fechadas: perfis por projeto, frontend em HTML/CSS/JS puro, JWT sem refresh token, transcrição com revisão obrigatória.
 
 ---
 
@@ -77,9 +77,11 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 
 | Perfil | Permissões |
 |---|---|
-| **Gestor** | Acesso completo: cria projetos, cria/edita o conteúdo/exclui tarefas, convida membros, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio), remove membros |
-| **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); **movimenta** (via Kanban) apenas as tarefas atribuídas a ele, mas **não edita os dados** delas (título, descrição, prazo, prioridade, responsável — isso é exclusivo do Gestor); comenta em qualquer tarefa do projeto e anexa arquivos nas atribuídas a ele; pode sair de um projeto voluntariamente |
+| **Gestor** | Acesso completo: cria projetos, cria/edita o conteúdo/exclui tarefas, convida membros, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio, exportáveis em PDF), remove membros, acessa o painel de desempenho da equipe |
+| **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); **movimenta** (via Kanban) apenas as tarefas em que é um dos responsáveis, mas **não edita os dados** delas (título, descrição, prazo, prioridade, responsáveis — isso é exclusivo do Gestor); comenta em qualquer tarefa do projeto e anexa arquivos nas atribuídas a ele; pode sair de um projeto voluntariamente |
 | **Observador** | Acesso somente leitura ao projeto e ao Kanban |
+
+Independente do papel, todo usuário pode editar o próprio nome e trocar a própria senha (RF-01.6) — isso é por conta, não por projeto.
 
 ---
 
@@ -91,26 +93,31 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-01.3 — Recuperação de senha via e-mail (link com expiração de 1h). Implementado: token (UUID) e validade armazenados no próprio registro do usuário (`tokenRecuperacao`, `tokenExpiraEm` — sem tabela extra), envio via Spring Mail + SMTP (credenciais em variável de ambiente, nunca no código). O e-mail é enviado em HTML, com a identidade visual do Kanvox (selo "K" e botão de ação na cor de destaque do app), acompanhado de uma versão em texto puro como alternativa para clientes que não renderizam HTML. Por segurança, a resposta da API é sempre a mesma genérica, exista ou não o e-mail informado — evita que alguém descubra quais contas estão cadastradas testando e-mails ao acaso. O token vale uma única vez: some assim que a senha é trocada. Falha no envio do e-mail é registrada em log e não impede o restante do fluxo (mesmo padrão de degradação graciosa do RNF-03). A tela de redefinição consulta o e-mail associado ao token (sem risco de enumeração — só quem já possui o token, recebido por e-mail, consegue essa informação) e mostra "Redefinindo a senha de fulano@exemplo.com" antes de pedir a nova senha, para o usuário confirmar que é a conta certa. Testado de ponta a ponta com uma conta Gmail real.
 - RF-01.4 — Gestor pode convidar membros para um projeto (**apenas usuários já cadastrados**, localizados por e-mail; convite a e-mails sem conta fica como trabalho futuro). O convite **fica pendente até o convidado decidir**: o convidado recebe uma notificação e, na tela "Meus projetos", **aceita ou recusa** — só depois de aceito ele passa a ter acesso ao projeto. Isso evita a inclusão indevida de alguém sem consentimento.
 - RF-01.5 — Gestor pode remover membros (ou cancelar um convite ainda pendente); Membro pode sair voluntariamente de um projeto (em todos os casos o vínculo `MembroProjeto` é marcado como inativo, nunca excluído — é isso que preserva o histórico, sem tabela de auditoria)
+- RF-01.6 — Usuário logado pode editar o próprio nome e trocar a própria senha, a qualquer momento, pela tela "Meu perfil". A troca de senha exige a senha atual como confirmação. Tanto o cadastro (RF-01.1) quanto a troca de senha aqui exigem **senha forte**: pelo menos 8 caracteres e pelo menos 3 destes 4 tipos de caractere — maiúscula, minúscula, número, símbolo. O critério é mostrado em tempo real numa barra de força na tela, e validado de novo no servidor (nunca só no frontend). A redefinição de senha por e-mail (RF-01.3) mantém, deliberadamente, a regra mais simples de apenas 6 caracteres — é um fluxo de recuperação de emergência, não o cadastro normal de uma senha.
 
 ### RF-02 — Gerenciamento de Projetos
 - RF-02.1 — Gestor cria projetos (nome, descrição)
 - RF-02.2 — Gestor edita e encerra projetos existentes
-- RF-02.3 — Visão geral do projeto: progresso, tarefas em aberto, membros, histórico
+- RF-02.3 — Visão geral do projeto: progresso, tarefas em aberto, membros, e indicadores de quantas tarefas estão bloqueadas e quantas estão com o prazo vencido (calculados a cada consulta, sem tabela extra)
+- RF-02.4 — Filtro do quadro por título (busca textual), responsável e prioridade — inteiramente no frontend, já que o quadro inteiro é recarregado a cada 5s pelo polling (RF-03.6); não exige nenhuma rota nova no backend
 
 ### RF-03 — Quadro Kanban
 - RF-03.1 — Quadro com 5 colunas: A Fazer, Em Andamento, Bloqueado, **Em Revisão**, Concluído
 - RF-03.2 — Gestor cria, edita o conteúdo e exclui qualquer tarefa do projeto (criação, edição de dados e exclusão são exclusivas do Gestor)
-- RF-03.3 — Membro **apenas movimenta** (via drag-and-drop / mudança de coluna) as tarefas atribuídas a ele — não cria tarefas nem edita título, descrição, prazo, prioridade ou responsável, mesmo das próprias tarefas. A colaboração do Membro acontece via comentários e anexos (RF-07), não editando os dados da tarefa diretamente
+- RF-03.3 — Membro **apenas movimenta** (via drag-and-drop / mudança de coluna) as tarefas em que é um dos responsáveis — não cria tarefas nem edita título, descrição, prazo, prioridade ou responsáveis, mesmo das próprias tarefas. A colaboração do Membro acontece via comentários e anexos (RF-07), não editando os dados da tarefa diretamente
 - RF-03.4 — Movimentação de tarefas via drag-and-drop
-- RF-03.5 — Cada tarefa contém: título, descrição, **um** responsável, prazo, **prioridade** (Baixa/Média/Alta), status (um único responsável por tarefa no MVP; múltiplos responsáveis exigiriam tabela de junção extra e ficam como melhoria futura)
+- RF-03.5 — Cada tarefa contém: título, descrição, **um ou mais responsáveis** (relação muitos-para-muitos — implementado via tabela de junção `tarefa_responsavel`, superando a limitação de responsável único do MVP original), prazo, **prioridade** (Baixa/Média/Alta), status
 - RF-03.6 — Atualização periódica do quadro via polling automático, refletindo mudanças para todos os membros conectados em poucos segundos
 - RF-03.7 — **Concluir (ou reabrir) uma tarefa é decisão exclusiva do Gestor.** O Membro entrega o trabalho movendo a própria tarefa para a coluna "Em Revisão"; só o Gestor pode movê-la para "Concluído" (ou devolvê-la para outra coluna). Isso garante que toda entrega passe por uma avaliação antes de ser dada como pronta.
+- RF-03.8 — **Dependência entre tarefas** *(bloco novo)*: uma tarefa pode depender de uma ou mais tarefas do mesmo projeto (tabela de junção auto-referenciada `tarefa_dependencia`) e só sai da coluna "A Fazer" quando todas as suas dependências estiverem com status "Concluído" — a tentativa de mover é recusada com uma mensagem citando quais dependências ainda faltam. O sistema impede criar um ciclo (A depender de B que depende de A, direta ou indiretamente) e impede que a dependência seja uma tarefa de outro projeto. Excluir uma tarefa remove automaticamente a referência das tarefas que dependiam dela.
+- RF-03.9 — **Histórico de atividade da tarefa** *(bloco novo)*: linha do tempo somente leitura, gerada automaticamente pelo sistema a cada criação, edição ou mudança de coluna, com autor e data de cada evento — não existe escrita manual pelo usuário.
+- RF-03.10 — **Linha do tempo do projeto** *(bloco novo)*: visão alternativa ao quadro, com as tarefas em aberto (não concluídas) agrupadas por prazo — Atrasadas, Hoje, Esta Semana, Mais Adiante, Sem Prazo Definido — cada grupo ordenado por data. Calculada inteiramente no frontend em cima dos mesmos dados do polling do quadro (RF-03.6), sem rota nova no backend.
 
 ### RF-04 — Relatórios
 - RF-04.1 — Geração automática de relatório a partir do estado atual das tarefas
 - RF-04.2 — Relatório contém: progresso geral, tarefas concluídas no período, tarefas em aberto, impedimentos, próximos prazos
 - RF-04.3 — Relatório pode ser solicitado pelo Gestor a qualquer momento pela plataforma web
-- RF-04.4 — Relatório é visualizável dentro da plataforma (exportação em PDF é desejável, não obrigatória no MVP)
+- RF-04.4 — Relatório é visualizável dentro da plataforma e **exportável em PDF** (biblioteca OpenPDF, gerado sob demanda a partir do texto do relatório já salvo — sem serviço externo). Disponível para qualquer membro ativo do projeto, mesma regra de leitura do relatório em tela.
 
 ### RF-05 — Transcrição de Áudio para Relatórios
 - RF-05.1 — Gestor pode gravar um áudio diretamente na plataforma web
@@ -124,7 +131,7 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-06.2 — Gestor recebe notificação de tarefas com prazo vencido
 - RF-06.3 — Membro recebe notificação de tarefas recém-atribuídas
 - RF-06.4 — Notificações exibidas dentro da plataforma web
-- RF-06.5 — Gestor e o responsável pela tarefa recebem notificação de novo comentário (RF-07.1), exceto quem escreveu o comentário
+- RF-06.5 — Gestor e todos os responsáveis pela tarefa recebem notificação de novo comentário (RF-07.1), exceto quem escreveu o comentário
 - RF-06.6 — Gestor recebe notificação quando uma tarefa é movida para "Em Revisão" (RF-03.7)
 - RF-06.7 — Convidado recebe notificação de convite a projeto; Gestor recebe notificação quando o convite é aceito ou recusado (RF-01.4)
 
@@ -135,6 +142,12 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - RF-07.1 — Gestor e Membro podem comentar em qualquer tarefa do projeto (Observador tem acesso somente leitura); cada comentário tem autor e data. O autor do comentário ou o Gestor podem excluí-lo.
 - RF-07.2 — Gestor pode anexar arquivos em qualquer tarefa; Membro só nas tarefas atribuídas a ele — é o canal de devolutiva ("entreguei, segue o arquivo"). Limite de 10MB por arquivo, guardado no próprio banco de dados (sem serviço de armazenamento externo, mantendo o RNF-07 de custo zero). Quem enviou o anexo ou o Gestor podem excluí-lo.
 - RF-07.3 — Comentários e anexos ficam bloqueados em projetos encerrados (mesma regra do Kanban).
+
+### RF-08 — Desempenho da Equipe
+*(bloco novo — pensado após reflexão sobre o que um gerente de projetos real precisaria além do núcleo já entregue)*
+- RF-08.1 — Painel "Desempenho", exclusivo do Gestor, com uma linha por membro ativo do projeto (Observador fica de fora — nunca pode ser responsável por tarefa): tarefas concluídas, em aberto, atrasadas, tempo médio de conclusão (média de `concluidaEm - criadoEm` das tarefas concluídas) e eficiência de entrega (média de `prazo - concluidaEm`, em dias — positivo é entrega adiantada, negativo é atraso; só entram tarefas concluídas que tinham prazo definido).
+- RF-08.2 — Resumo do time no topo do painel: progresso geral do projeto, percentual de entregas feitas dentro do prazo, e quantas tarefas estão bloqueadas agora.
+- RF-08.3 — O painel é uma visão de **carga de trabalho do time para o Gestor**, deliberadamente **não** um ranking individual exposto aos membros — cada Membro não vê a linha dos colegas, só o Gestor tem acesso à tela inteira. Todos os números vêm de campos que já existem em `Tarefa` (responsáveis, status, prazo, datas) — nenhuma tabela nova, nenhum campo de estimativa de esforço ainda (ficaria como melhoria futura).
 
 ---
 
@@ -149,6 +162,7 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 - Toda comunicação via HTTPS/TLS
 - Token JWT único com expiração (ex. 8 horas); ao expirar, o usuário faz login novamente — sem mecanismo de refresh token no MVP (simplificação deliberada)
 - Senhas armazenadas com hash (BCrypt)
+- Senha forte exigida no cadastro e na troca de senha logada: mínimo de 8 caracteres e pelo menos 3 dos 4 tipos de caractere (maiúscula, minúscula, número, símbolo) — validado no servidor, não só na interface (ver RF-01.6)
 - Chaves de API e credenciais do banco em variáveis de ambiente, nunca em código-fonte
 
 ### RNF-03 — Disponibilidade e Confiabilidade
@@ -182,11 +196,14 @@ Nomes de tabelas, classes e campos em português, sem acentuação, seguindo a c
 - **Usuario** — id, nome, email, senha (hash), tokenRecuperacao (opcional), tokenExpiraEm (opcional). *Sem campo de papel global* — o papel é sempre por projeto, em MembroProjeto
 - **Projeto** — id, nome, descricao, criadoPor, status, criadoEm
 - **MembroProjeto** — projetoId, usuarioId, papelNoProjeto (gestor/membro/observador), situacao (pendente/ativo/inativo — nasce `pendente` quando é um convite, vira `ativo` quando o convidado aceita, e `inativo` quando o convite é recusado ou o membro sai/é removido; o registro nunca é excluído, preservando o histórico)
-- **Tarefa** — id, projetoId, titulo, descricao, responsavelId, prazo, prioridade (baixa/media/alta), status (kanban, agora com 5 valores incluindo "em revisão"), concluidaEm (preenchida quando o Gestor conclui; usada no relatório), criadoEm
+- **Tarefa** — id, projetoId, titulo, descricao, **responsaveis** (lista de Usuario — relação muitos-para-muitos via tabela de junção `tarefa_responsavel`, RF-03.5), **dependencias** (lista de Tarefa do mesmo projeto — relação muitos-para-muitos **auto-referenciada** via tabela `tarefa_dependencia`, RF-03.8), prazo, prioridade (baixa/media/alta), status (kanban, agora com 5 valores incluindo "em revisão"), concluidaEm (preenchida quando o Gestor conclui; usada no relatório e no painel de desempenho), criadoEm, notificadoAtraso (controle interno da rotina de prazo vencido, RF-06.2)
+- **HistoricoTarefa** — id, tarefaId, autorId, descricao (texto livre gerado pelo sistema, ex. "Moveu de 'A Fazer' para 'Em Andamento'."), criadoEm (RF-03.9). Só é escrito pelo `TarefaServico`, nunca pelo usuário diretamente.
 - **Comentario** — id, tarefaId, autorId, texto, criadoEm (RF-07.1)
 - **Anexo** — id, tarefaId, nome, tipo, tamanho, dados (bytes do arquivo, até 10MB), enviadoPorId, criadoEm (RF-07.2)
-- **Relatorio** — id, projetoId, conteudo, transcricaoAudio (opcional), geradoPor, geradoEm
+- **Relatorio** — id, projetoId, conteudo, transcricaoAudio (opcional), geradoPor, geradoEm — exportável em PDF sob demanda (RF-04.4), sem campo novo para isso (o PDF é gerado na hora a partir de `conteudo`)
 - **Notificacao** — id, usuarioId, tipo, mensagem, lida (booleano), criadoEm
+
+**Nota sobre exclusão de tarefa e tabelas auto-referenciadas:** excluir uma `Tarefa` precisa limpar duas coisas antes, senão a chave estrangeira impede a exclusão — o histórico da própria tarefa (`HistoricoTarefa`, entidade filha de verdade) e a referência em `tarefa_dependencia` nas tarefas que dependiam dela (a tabela de junção `tarefa_responsavel`, por outro lado, é limpa automaticamente pelo Hibernate ao excluir a tarefa que a possui, sem código extra).
 
 ---
 
@@ -196,27 +213,39 @@ A estrutura segue o padrão em camadas clássico do Spring Boot (Controlador →
 
 ```
 kanvox/
+├── .vscode/
+│   ├── extensions.json               # extensoes recomendadas do VS Code (versionado)
+│   └── settings.json                 # tabs em vez de espacos, igual ao resto do codigo
+│
 ├── src/
 │   ├── main/
 │   │   ├── java/br/edu/fatec/kanvox/
 │   │   │   ├── controlador/          # Recebe requisições HTTP (endpoints)
-│   │   │   │   ├── AutenticacaoControlador.java
+│   │   │   │   ├── AutenticacaoControlador.java   # cadastro/login/recuperacao/perfil (RF-01)
 │   │   │   │   ├── ProjetoControlador.java
-│   │   │   │   ├── ConviteControlador.java   # aceitar/recusar convite (RF-01.4)
+│   │   │   │   ├── ConviteControlador.java        # aceitar/recusar convite (RF-01.4)
 │   │   │   │   ├── TarefaControlador.java
-│   │   │   │   ├── ComentarioControlador.java   # RF-07.1
-│   │   │   │   ├── AnexoControlador.java        # RF-07.2
+│   │   │   │   ├── HistoricoTarefaControlador.java  # linha do tempo da tarefa, so leitura (RF-03.9)
+│   │   │   │   ├── ComentarioControlador.java     # RF-07.1
+│   │   │   │   ├── AnexoControlador.java          # RF-07.2
 │   │   │   │   ├── NotificacaoControlador.java
-│   │   │   │   └── RelatorioControlador.java
+│   │   │   │   ├── RelatorioControlador.java      # relatorio + transcricao + PDF (RF-04/05)
+│   │   │   │   ├── DesempenhoControlador.java     # painel do Gestor (RF-08)
+│   │   │   │   └── TratadorDeErros.java           # converte excecoes em respostas JSON (RNF-05)
 │   │   │   │
 │   │   │   ├── servico/              # Regras de negócio
 │   │   │   │   ├── AutenticacaoServico.java
 │   │   │   │   ├── ProjetoServico.java
 │   │   │   │   ├── TarefaServico.java
+│   │   │   │   ├── HistoricoTarefaServico.java    # RF-03.9
 │   │   │   │   ├── ComentarioServico.java
 │   │   │   │   ├── AnexoServico.java
 │   │   │   │   ├── NotificacaoServico.java
-│   │   │   │   ├── RelatorioServico.java
+│   │   │   │   ├── RelatorioServico.java          # tambem monta o PDF (OpenPDF)
+│   │   │   │   ├── DesempenhoServico.java         # RF-08
+│   │   │   │   ├── EmailServico.java              # envio do e-mail de recuperacao (RF-01.3)
+│   │   │   │   ├── TokenServico.java              # gera/valida o JWT
+│   │   │   │   ├── RegraDeNegocioExcecao.java, PermissaoNegadaExcecao.java  # excecoes (400/403)
 │   │   │   │   └── transcricao/
 │   │   │   │       ├── ServicoTranscricao.java            # interface (abstração)
 │   │   │   │       └── ServicoTranscricaoGroqWhisper.java  # implementação atual
@@ -226,6 +255,7 @@ kanvox/
 │   │   │   │   ├── ProjetoRepositorio.java
 │   │   │   │   ├── MembroProjetoRepositorio.java
 │   │   │   │   ├── TarefaRepositorio.java
+│   │   │   │   ├── HistoricoTarefaRepositorio.java
 │   │   │   │   ├── ComentarioRepositorio.java
 │   │   │   │   ├── AnexoRepositorio.java
 │   │   │   │   ├── NotificacaoRepositorio.java
@@ -235,7 +265,8 @@ kanvox/
 │   │   │   │   ├── Usuario.java
 │   │   │   │   ├── Projeto.java
 │   │   │   │   ├── MembroProjeto.java
-│   │   │   │   ├── Tarefa.java
+│   │   │   │   ├── Tarefa.java               # responsaveis e dependencias, ManyToMany (RF-03.5/03.8)
+│   │   │   │   ├── HistoricoTarefa.java      # RF-03.9
 │   │   │   │   ├── Comentario.java
 │   │   │   │   ├── Anexo.java
 │   │   │   │   ├── Relatorio.java
@@ -244,16 +275,20 @@ kanvox/
 │   │   │   │       StatusTarefa.java, PrioridadeTarefa.java, TipoNotificacao.java  # enums
 │   │   │   │
 │   │   │   ├── config/               # Configurações (segurança, etc.)
-│   │   │   │   └── ConfiguracaoSeguranca.java
+│   │   │   │   ├── ConfiguracaoSeguranca.java
+│   │   │   │   └── FiltroAutenticacaoJwt.java     # le o token JWT em toda requisicao
 │   │   │   │
-│   │   │   └── KanvoxAplicacao.java  # classe principal (main)
+│   │   │   └── KanvoxAplicacao.java  # classe principal (main) — tambem carrega o .env
 │   │   │
 │   │   └── resources/
 │   │       ├── application.properties   # configuração do banco, porta, etc.
 │   │       └── static/                  # frontend (HTML/CSS/JS puro + SortableJS local)
 │   │
 │   └── test/
-│       └── java/br/edu/fatec/kanvox/    # testes unitários (JUnit)
+│       └── java/br/edu/fatec/kanvox/    # testes unitários (JUnit) — 71 testes
+│
+├── deploy/
+│   └── GUIA_DEPLOY.md                # passo a passo de deploy em VPS (Caddy + systemd)
 │
 ├── pom.xml                          # dependências do projeto (Maven)
 └── docs/
