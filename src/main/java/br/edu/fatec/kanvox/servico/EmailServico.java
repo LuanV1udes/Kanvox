@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.mail.internet.MimeMessage;
 
-/** Envio de e-mails da plataforma — hoje, somente a recuperacao de senha (RF-01.3). */
+/** Envio de e-mails da plataforma: boas-vindas no cadastro (RF-01.1) e recuperacao de senha (RF-01.3). */
 @Service
 public class EmailServico {
 
@@ -35,6 +35,83 @@ public class EmailServico {
 		this.mailSender = mailSender;
 		this.remetente = remetente;
 		this.urlBase = urlBase;
+	}
+
+	/**
+	 * Confirma a criacao da conta (RF-01.1) com uma mensagem de boas-vindas em
+	 * HTML, na mesma identidade visual do Kanvox, com versao em texto puro como
+	 * alternativa. Assim como o e-mail de recuperacao, falhas de envio sao
+	 * apenas registradas em log (RNF-03) — a conta ja foi criada com sucesso
+	 * independente do e-mail chegar ou nao.
+	 */
+	public void enviarBoasVindas(String destinatario, String nomeDoUsuario) {
+		String link = urlBase + "/index.html";
+
+		try {
+			MimeMessage mensagem = mailSender.createMimeMessage();
+			MimeMessageHelper ajudante = new MimeMessageHelper(mensagem, true, "UTF-8");
+			if (!remetente.isBlank()) {
+				ajudante.setFrom(remetente);
+			}
+			ajudante.setTo(destinatario);
+			ajudante.setSubject("Bem-vindo(a) ao Kanvox!");
+			ajudante.setText(montarTextoPuroBoasVindas(nomeDoUsuario, link), montarHtmlBoasVindas(nomeDoUsuario, link));
+			mailSender.send(mensagem);
+		} catch (Exception e) {
+			registrador.error("Falha ao enviar e-mail de boas-vindas para {}", destinatario, e);
+		}
+	}
+
+	private String montarTextoPuroBoasVindas(String nomeDoUsuario, String link) {
+		return "Olá, " + nomeDoUsuario + "!\n\n"
+				+ "Sua conta no Kanvox foi criada com sucesso. Agora você já pode entrar na plataforma, "
+				+ "criar projetos e organizar as tarefas da sua equipe.\n\n"
+				+ "Acesse: " + link + "\n\n"
+				+ "Se você não fez esse cadastro, ignore este e-mail.";
+	}
+
+	/** Mesmo layout de tabelas do e-mail de recuperacao de senha, trocando o conteudo pelo texto de boas-vindas. */
+	private String montarHtmlBoasVindas(String nomeDoUsuario, String link) {
+		return "<!DOCTYPE html><html lang=\"pt-BR\"><body style=\"margin:0;padding:32px 16px;"
+				+ "background:" + COR_FUNDO + ";font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;\">"
+				+ "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\">"
+				+ "<table role=\"presentation\" width=\"480\" cellpadding=\"0\" cellspacing=\"0\" "
+				+ "style=\"max-width:480px;width:100%;background:" + COR_SUPERFICIE + ";border:1px solid " + COR_BORDA + ";"
+				+ "border-radius:14px;padding:36px 32px;\">"
+
+				+ "<tr><td align=\"center\" style=\"padding-bottom:22px;\">"
+				+ "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr>"
+				+ "<td style=\"width:30px;height:30px;background:" + COR_TINTA + ";border-radius:8px;"
+				+ "color:" + COR_TINTA_CONTRASTE + ";font-size:15px;font-weight:700;text-align:center;"
+				+ "vertical-align:middle;font-family:Arial,sans-serif;\">K</td>"
+				+ "<td style=\"padding-left:9px;font-size:22px;font-weight:700;color:" + COR_TINTA + ";"
+				+ "letter-spacing:-0.03em;\">Kanvox</td>"
+				+ "</tr></table>"
+				+ "</td></tr>"
+
+				+ "<tr><td style=\"font-size:15px;line-height:1.6;color:" + COR_TINTA + ";\">"
+				+ "<p style=\"margin:0 0 14px;\">Olá, <strong>" + escaparHtml(nomeDoUsuario) + "</strong>!</p>"
+				+ "<p style=\"margin:0 0 24px;color:" + COR_TINTA_MEDIA + ";\">Sua conta no Kanvox foi criada com "
+				+ "sucesso! Agora você já pode entrar na plataforma, criar projetos e organizar as tarefas da "
+				+ "sua equipe.</p>"
+				+ "</td></tr>"
+
+				+ "<tr><td align=\"center\" style=\"padding-bottom:24px;\">"
+				+ "<a href=\"" + link + "\" style=\"display:inline-block;background:" + COR_ACENTO + ";"
+				+ "color:" + COR_TINTA_CONTRASTE + ";text-decoration:none;font-size:14px;font-weight:600;"
+				+ "padding:12px 28px;border-radius:8px;font-family:Arial,sans-serif;\">Acessar o Kanvox</a>"
+				+ "</td></tr>"
+
+				+ "<tr><td style=\"font-size:13px;color:" + COR_TINTA_SUAVE + ";line-height:1.6;"
+				+ "border-top:1px solid " + COR_BORDA + ";padding-top:18px;\">"
+				+ "Se o botão não funcionar, copie e cole este link no navegador:<br>"
+				+ "<a href=\"" + link + "\" style=\"color:" + COR_ACENTO + ";word-break:break-all;\">" + link + "</a>"
+				+ "<p style=\"margin:16px 0 0;\">Se você não fez esse cadastro, pode ignorar este e-mail.</p>"
+				+ "</td></tr>"
+
+				+ "</table>"
+				+ "</td></tr></table>"
+				+ "</body></html>";
 	}
 
 	/**

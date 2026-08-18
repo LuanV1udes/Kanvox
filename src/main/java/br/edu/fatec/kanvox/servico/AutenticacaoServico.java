@@ -54,7 +54,9 @@ public class AutenticacaoServico {
 		novoUsuario.setNome(dadosRecebidos.getNome());
 		novoUsuario.setEmail(dadosRecebidos.getEmail());
 		novoUsuario.setSenha(codificadorDeSenha.encode(dadosRecebidos.getSenha()));
-		return usuarioRepositorio.save(novoUsuario);
+		Usuario usuarioSalvo = usuarioRepositorio.save(novoUsuario);
+		emailServico.enviarBoasVindas(usuarioSalvo.getEmail(), usuarioSalvo.getNome());
+		return usuarioSalvo;
 	}
 
 	/** Confere e-mail e senha e devolve um token JWT (RF-01.1). */

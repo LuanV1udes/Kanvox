@@ -7,6 +7,6 @@
 # de copiar este arquivo para a VPS.
 # ============================================================
 
-SEU_DOMINIO_AQUI {
+kanvox.fluima.com {
 	reverse_proxy localhost:8080
 }

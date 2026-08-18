@@ -222,3 +222,8 @@ sudo mv /tmp/kanvox.jar /opt/kanvox/kanvox.jar
 sudo chown kanvox:kanvox /opt/kanvox/kanvox.jar
 sudo systemctl start kanvox
 ```
+
+Ou, de forma automatizada, rode `.\deploy.ps1` (na raiz do projeto) —
+ele builda o JAR, envia por `scp` e reinicia o serviço na VPS, tudo
+em um comando só. Ajuste o caminho da chave SSH (`$ChaveSsh`) dentro
+do script se estiver rodando de outra máquina.
