@@ -381,6 +381,107 @@ button:focus-visible {
 	font-size: 0.88rem;
 }
 
+/* ---------- pagina inicial (apresentacao antes do login) ---------- */
+
+.barra-superior-inicial {
+	position: fixed;
+	top: 1.1rem;
+	right: 1.1rem;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+
+.hero-inicial {
+	max-width: 640px;
+	margin: 0 auto;
+	padding: 5.5rem 1.5rem 3rem;
+	text-align: center;
+}
+
+.hero-inicial .marca {
+	margin-bottom: 1.6rem;
+}
+
+.titulo-hero {
+	font-size: 2rem;
+	letter-spacing: -0.02em;
+	margin-bottom: 1rem;
+}
+
+.subtitulo-hero {
+	color: var(--cor-tinta-suave);
+	font-size: 1.02rem;
+	margin-bottom: 2rem;
+}
+
+.botao-cta-inicial {
+	display: inline-block;
+	padding: 0.85rem 2.2rem;
+	font-size: 0.95rem;
+}
+
+.secao-recursos {
+	max-width: var(--largura-do-conteudo);
+	margin: 0 auto;
+	padding: 1rem 1.5rem 5rem;
+}
+
+.titulo-secao-inicial {
+	text-align: center;
+	margin-bottom: 2rem;
+}
+
+.grade-de-recursos {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: 1.2rem;
+}
+
+.cartao-recurso {
+	padding: 1.4rem 1.3rem;
+	background: var(--cor-superficie);
+	border: 1px solid var(--cor-borda);
+	border-radius: var(--raio-grande);
+}
+
+.icone-recurso {
+	display: grid;
+	place-items: center;
+	width: 38px;
+	height: 38px;
+	margin-bottom: 0.9rem;
+	border-radius: 9px;
+	background: var(--cor-acento-suave);
+	color: var(--cor-acento);
+}
+
+.icone-recurso svg {
+	width: 20px;
+	height: 20px;
+}
+
+.cartao-recurso h3 {
+	margin-bottom: 0.4rem;
+}
+
+.cartao-recurso p {
+	margin: 0;
+	color: var(--cor-tinta-suave);
+	font-size: 0.9rem;
+}
+
+.rodape-inicial {
+	text-align: center;
+	padding: 1.5rem 1.5rem 3rem;
+	border-top: 1px solid var(--cor-borda);
+}
+
+.rodape-inicial p {
+	margin: 0;
+}
+
 /* ---------- forca da senha no cadastro (RF-01.1 / RNF-02) ---------- */
 
 .medidor-de-senha {
@@ -1744,6 +1845,14 @@ dialog::backdrop {
 
 	.cartao-entrada {
 		padding: 1.9rem 1.4rem;
+	}
+
+	.hero-inicial {
+		padding-top: 4.5rem;
+	}
+
+	.titulo-hero {
+		font-size: 1.6rem;
 	}
 
 	.quadro {

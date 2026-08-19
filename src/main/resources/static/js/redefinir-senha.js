@@ -49,7 +49,7 @@ formulario.addEventListener('submit', async (evento) => {
 		formulario.hidden = true;
 		mensagem.hidden = true;
 		exibirMensagem(resposta.mensagem, 'sucesso');
-		setTimeout(() => { window.location.href = '/index.html'; }, 2500);
+		setTimeout(() => { window.location.href = '/login.html'; }, 2500);
 	} catch (erro) {
 		mostrarErro(erro.message);
 	}

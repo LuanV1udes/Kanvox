@@ -28,7 +28,7 @@ async function chamarApi(rota, opcoes = {}) {
 	if (resposta.status === 401) {
 		localStorage.removeItem('kanvox_token');
 		localStorage.removeItem('kanvox_usuario');
-		window.location.href = '/index.html';
+		window.location.href = '/login.html';
 		throw new Error('Sessao expirada. Entre novamente.');
 	}
 
@@ -49,13 +49,13 @@ function usuarioLogado() {
 function sairDaConta() {
 	localStorage.removeItem('kanvox_token');
 	localStorage.removeItem('kanvox_usuario');
-	window.location.href = '/index.html';
+	window.location.href = '/login.html';
 }
 
 /** Redireciona para o login se nao houver sessao (usado nas paginas internas). */
 function exigirSessao() {
 	if (!localStorage.getItem('kanvox_token') || !usuarioLogado()) {
-		window.location.href = '/index.html';
+		window.location.href = '/login.html';
 	}
 }
 

@@ -45,7 +45,7 @@ public class EmailServico {
 	 * independente do e-mail chegar ou nao.
 	 */
 	public void enviarBoasVindas(String destinatario, String nomeDoUsuario) {
-		String link = urlBase + "/index.html";
+		String link = urlBase + "/login.html";
 
 		try {
 			MimeMessage mensagem = mailSender.createMimeMessage();

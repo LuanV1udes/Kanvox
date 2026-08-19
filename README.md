@@ -75,9 +75,9 @@ Pelo terminal (na raiz do projeto) — ou use o botão **Run** do VS Code, expli
 .\mvnw.cmd spring-boot:run
 ```
 
-Abra **http://localhost:8080** no navegador — a tela de login/cadastro aparece. O frontend é HTML/CSS/JS puro, servido pelo próprio Spring Boot a partir de `src/main/resources/static/` (sem build, sem npm — a única biblioteca é o SortableJS, um arquivo local em `js/sortable.min.js`).
+Abra **http://localhost:8080** no navegador — a página inicial aparece, apresentando o sistema. O frontend é HTML/CSS/JS puro, servido pelo próprio Spring Boot a partir de `src/main/resources/static/` (sem build, sem npm — a única biblioteca é o SortableJS, um arquivo local em `js/sortable.min.js`).
 
-**Telas:** login/cadastro (`index.html`) → lista de projetos (`projetos.html`) → página do projeto (`projeto.html`) com o quadro Kanban (drag-and-drop, atualizado por polling a cada 5s), membros, notificações (sino no topo) e relatórios com narração por voz (gravação pelo microfone → transcrição → revisão → salvar).
+**Telas:** página inicial (`index.html`) → login/cadastro (`login.html`) → lista de projetos (`projetos.html`) → página do projeto (`projeto.html`) com o quadro Kanban (drag-and-drop, atualizado por polling a cada 5s), membros, notificações (sino no topo) e relatórios com narração por voz (gravação pelo microfone → transcrição → revisão → salvar).
 
 ## Como colocar em produção (VPS + HTTPS)
 

@@ -3,73 +3,126 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Kanvox — Entrar</title>
+	<title>Kanvox — Gestão de projetos com relatórios narrados por voz</title>
 	<link rel="stylesheet" href="css/estilo.css">
 	<!-- no <head> de proposito: aplica o tema antes da pagina aparecer -->
 	<script src="js/tema.js"></script>
 </head>
-<body class="pagina-entrada">
+<body class="pagina-inicial">
 
-	<div id="area-do-tema"></div>
+	<div class="barra-superior-inicial">
+		<a href="/login.html" class="botao-secundario botao-compacto">Entrar</a>
+		<div id="area-do-tema"></div>
+	</div>
 
-	<main class="cartao-entrada">
-		<div class="marca">
-			<span class="marca-simbolo" aria-hidden="true">K</span>
-			<h1 class="logotipo">Kanvox</h1>
-		</div>
-		<p class="subtitulo">Gestão de projetos com relatórios narrados por voz</p>
-
-		<div class="abas" role="tablist">
-			<button type="button" id="aba-entrar" class="aba ativa"
-				role="tab" aria-selected="true" aria-controls="formulario-entrar">Entrar</button>
-			<button type="button" id="aba-cadastrar" class="aba"
-				role="tab" aria-selected="false" aria-controls="formulario-cadastrar">Criar conta</button>
-		</div>
-
-		<form id="formulario-entrar" role="tabpanel" aria-labelledby="aba-entrar">
-			<label>E-mail
-				<input type="email" id="entrar-email" required autocomplete="email">
-			</label>
-			<label>Senha
-				<input type="password" id="entrar-senha" required autocomplete="current-password">
-			</label>
-			<button type="submit" class="botao-principal botao-largo">Entrar</button>
-			<p class="link-auxiliar"><a href="#" id="link-esqueci-senha">Esqueceu sua senha?</a></p>
-		</form>
-
-		<!-- painel de recuperacao de senha (RF-01.3): substitui as abas ao clicar em "Esqueceu sua senha?" -->
-		<div id="painel-esqueci-senha" hidden>
-			<p class="subtitulo" style="margin-top:0">Informe seu e-mail cadastrado para receber o link de redefinição.</p>
-			<form id="formulario-esqueci-senha">
-				<label>E-mail
-					<input type="email" id="esqueci-email" required autocomplete="email">
-				</label>
-				<button type="submit" class="botao-principal botao-largo">Enviar link</button>
-				<p class="link-auxiliar"><a href="#" id="link-voltar-login">Voltar para o login</a></p>
-			</form>
-		</div>
-
-		<form id="formulario-cadastrar" role="tabpanel" aria-labelledby="aba-cadastrar" hidden>
-			<label>Nome
-				<input type="text" id="cadastrar-nome" required autocomplete="name">
-			</label>
-			<label>E-mail
-				<input type="email" id="cadastrar-email" required autocomplete="email">
-			</label>
-			<label>Senha
-				<input type="password" id="cadastrar-senha" required minlength="8" autocomplete="new-password">
-			</label>
-			<div class="medidor-de-senha" id="medidor-de-senha" hidden>
-				<div class="barra-de-forca"><div id="barra-de-forca-preenchimento"></div></div>
-				<p class="texto-suave" id="texto-forca-da-senha"></p>
+	<main>
+		<section class="hero-inicial">
+			<div class="marca">
+				<span class="marca-simbolo" aria-hidden="true">K</span>
+				<h1 class="logotipo">Kanvox</h1>
 			</div>
-			<button type="submit" class="botao-principal botao-largo">Criar conta</button>
-		</form>
+			<h2 class="titulo-hero">Gestão de projetos com relatórios narrados por voz</h2>
+			<p class="subtitulo-hero">
+				O Kanvox organiza o trabalho da sua equipe em um quadro Kanban colaborativo
+				e transforma reuniões faladas em relatórios de projeto, transcritos
+				automaticamente por inteligência artificial.
+			</p>
+			<a href="/login.html" class="botao-principal botao-cta-inicial">Começar agora</a>
+		</section>
 
-		<p id="mensagem" class="mensagem" role="alert" hidden></p>
+		<section class="secao-recursos">
+			<h2 class="titulo-secao-inicial">O que você pode fazer no Kanvox</h2>
+
+			<div class="grade-de-recursos">
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<rect x="3" y="3" width="18" height="18" rx="2"></rect>
+							<path d="M9 3v18M15 3v18"></path>
+						</svg>
+					</span>
+					<h3>Quadro Kanban colaborativo</h3>
+					<p>Organize as tarefas em colunas — a fazer, em andamento, em revisão e
+						concluído — com arrastar e soltar, atualizado em tempo real para toda a equipe.</p>
+				</article>
+
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<rect x="9" y="2" width="6" height="11" rx="3"></rect>
+							<path d="M5 10a7 7 0 0 0 14 0"></path>
+							<path d="M12 19v3M8 22h8"></path>
+						</svg>
+					</span>
+					<h3>Relatórios narrados por voz</h3>
+					<p>Grave um relatório falando naturalmente e o Kanvox transcreve o áudio
+						automaticamente, deixando o texto pronto para revisar e salvar.</p>
+				</article>
+
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+							<circle cx="9" cy="7" r="4"></circle>
+							<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+							<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+						</svg>
+					</span>
+					<h3>Papéis e permissões</h3>
+					<p>Convide sua equipe como Gestor, Membro ou Observador — cada papel vê e
+						faz exatamente o que deveria em cada projeto.</p>
+				</article>
+
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+							<path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
+						</svg>
+					</span>
+					<h3>Notificações em tempo real</h3>
+					<p>Convites, comentários e mudanças nas tarefas caem direto no sino de
+						notificações — ninguém perde uma atualização importante.</p>
+				</article>
+
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<path d="M3 3v18h18"></path>
+							<rect x="7" y="13" width="3" height="5"></rect>
+							<rect x="12" y="9" width="3" height="9"></rect>
+							<rect x="17" y="5" width="3" height="13"></rect>
+						</svg>
+					</span>
+					<h3>Painel de desempenho da equipe</h3>
+					<p>O Gestor acompanha tarefas concluídas, atrasadas e o tempo médio de
+						entrega de cada membro, para enxergar a carga de trabalho do time.</p>
+				</article>
+
+				<article class="cartao-recurso">
+					<span class="icone-recurso" aria-hidden="true">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+							stroke-linecap="round" stroke-linejoin="round">
+							<rect x="3" y="4" width="18" height="18" rx="2"></rect>
+							<path d="M16 2v4M8 2v4M3 10h18"></path>
+						</svg>
+					</span>
+					<h3>Linha do tempo e dependências</h3>
+					<p>Veja as tarefas em aberto organizadas por prazo e defina dependências
+						entre elas — uma tarefa só avança quando as anteriores terminam.</p>
+				</article>
+			</div>
+		</section>
 	</main>
 
-	<script src="js/api.js"></script>
-	<script src="js/autenticacao.js"></script>
+	<footer class="rodape-inicial">
+		<p class="texto-suave">Kanvox — gestão de projetos para equipes pequenas.</p>
+	</footer>
+
 </body>
 </html>

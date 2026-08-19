@@ -2,7 +2,8 @@
    autenticacao.js — tela de login e cadastro (RF-01.1)
    ============================================================ */
 
-// se ja existe uma sessao valida, vai direto para a lista de projetos
+// se ja existe uma sessao valida (ex.: o usuario voltou para /login.html com o
+// back do navegador), vai direto para a lista de projetos
 if (localStorage.getItem('kanvox_token') && usuarioLogado()) {
 	window.location.href = '/projetos.html';
 }

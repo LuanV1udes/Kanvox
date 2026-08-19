@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Kanvox — Entrar</title>
+	<link rel="stylesheet" href="css/estilo.css">
+	<!-- no <head> de proposito: aplica o tema antes da pagina aparecer -->
+	<script src="js/tema.js"></script>
+</head>
+<body class="pagina-entrada">
+
+	<div id="area-do-tema"></div>
+
+	<main class="cartao-entrada">
+		<div class="marca">
+			<span class="marca-simbolo" aria-hidden="true">K</span>
+			<h1 class="logotipo">Kanvox</h1>
+		</div>
+		<p class="subtitulo">Gestão de projetos com relatórios narrados por voz</p>
+
+		<div class="abas" role="tablist">
+			<button type="button" id="aba-entrar" class="aba ativa"
+				role="tab" aria-selected="true" aria-controls="formulario-entrar">Entrar</button>
+			<button type="button" id="aba-cadastrar" class="aba"
+				role="tab" aria-selected="false" aria-controls="formulario-cadastrar">Criar conta</button>
+		</div>
+
+		<form id="formulario-entrar" role="tabpanel" aria-labelledby="aba-entrar">
+			<label>E-mail
+				<input type="email" id="entrar-email" required autocomplete="email">
+			</label>
+			<label>Senha
+				<input type="password" id="entrar-senha" required autocomplete="current-password">
+			</label>
+			<button type="submit" class="botao-principal botao-largo">Entrar</button>
+			<p class="link-auxiliar"><a href="#" id="link-esqueci-senha">Esqueceu sua senha?</a></p>
+		</form>
+
+		<!-- painel de recuperacao de senha (RF-01.3): substitui as abas ao clicar em "Esqueceu sua senha?" -->
+		<div id="painel-esqueci-senha" hidden>
+			<p class="subtitulo" style="margin-top:0">Informe seu e-mail cadastrado para receber o link de redefinição.</p>
+			<form id="formulario-esqueci-senha">
+				<label>E-mail
+					<input type="email" id="esqueci-email" required autocomplete="email">
+				</label>
+				<button type="submit" class="botao-principal botao-largo">Enviar link</button>
+				<p class="link-auxiliar"><a href="#" id="link-voltar-login">Voltar para o login</a></p>
+			</form>
+		</div>
+
+		<form id="formulario-cadastrar" role="tabpanel" aria-labelledby="aba-cadastrar" hidden>
+			<label>Nome
+				<input type="text" id="cadastrar-nome" required autocomplete="name">
+			</label>
+			<label>E-mail
+				<input type="email" id="cadastrar-email" required autocomplete="email">
+			</label>
+			<label>Senha
+				<input type="password" id="cadastrar-senha" required minlength="8" autocomplete="new-password">
+			</label>
+			<div class="medidor-de-senha" id="medidor-de-senha" hidden>
+				<div class="barra-de-forca"><div id="barra-de-forca-preenchimento"></div></div>
+				<p class="texto-suave" id="texto-forca-da-senha"></p>
+			</div>
+			<button type="submit" class="botao-principal botao-largo">Criar conta</button>
+		</form>
+
+		<p id="mensagem" class="mensagem" role="alert" hidden></p>
+	</main>
+
+	<script src="js/api.js"></script>
+	<script src="js/autenticacao.js"></script>
+</body>
+</html>
