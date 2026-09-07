@@ -229,6 +229,52 @@ restrito a `127.0.0.1` (o padrão `0.0.0.0` é o que permite o acesso
 tanto local/LAN quanto pelo túnel, os dois batendo na mesma porta
 8080).
 
+### 5.7 Atualizando depois do deploy inicial
+
+Assim como a VPS tem o `deploy.ps1`, o notebook tem o
+[deploy-notebook.ps1](../deploy-notebook.ps1) — mesmo padrão (builda,
+envia por `scp`, reinicia o serviço), só apontando pro IP da rede local
+em vez da VPS. Rodar `.\deploy-notebook.ps1` a partir da raiz do
+projeto builda e publica a versão atual com um comando só.
+
+Duas diferenças em relação à VPS, específicas desse ambiente doméstico:
+
+- **Acesso por chave SSH**: a chave pública da máquina de
+  desenvolvimento precisa estar em `~/.ssh/authorized_keys` do usuário
+  do notebook — sem isso, o `scp`/`ssh` do script ficam esperando uma
+  senha que nunca chega (o script não é interativo). Se o terminal do
+  CasaOS pedir senha errada na primeira tentativa, é porque a senha do
+  painel do CasaOS não é a mesma do usuário Linux — `sudo passwd
+  <usuario>` resolve.
+- **`sudo` sem senha, só para os comandos do deploy**: como o script
+  não é interativo, os comandos `sudo systemctl stop/start` e `sudo mv
+  /tmp/kanvox.jar ...` remotos travariam esperando senha. A regra fica
+  em `/etc/sudoers.d/kanvox-deploy`, restrita a exatamente 6 comandos
+  (parar/iniciar/reiniciar/checar o serviço `kanvox`, mover o JAR pro
+  lugar certo, ajustar o dono do arquivo) — o resto do `sudo` continua
+  pedindo senha normalmente.
+
+  ```
+  zxc ALL=(root) NOPASSWD: /usr/bin/systemctl stop kanvox
+  zxc ALL=(root) NOPASSWD: /usr/bin/systemctl start kanvox
+  zxc ALL=(root) NOPASSWD: /usr/bin/systemctl restart kanvox
+  zxc ALL=(root) NOPASSWD: /usr/bin/systemctl status kanvox
+  zxc ALL=(root) NOPASSWD: /usr/bin/mv /tmp/kanvox.jar /opt/kanvox/kanvox.jar
+  zxc ALL=(root) NOPASSWD: /usr/bin/chown kanvox\:kanvox /opt/kanvox/kanvox.jar
+  ```
+
+  **Armadilha de sintaxe do sudoers**: o caractere `:` precisa ser
+  escapado (`\:`) dentro de um argumento de comando — sem isso, o
+  `chown kanvox:kanvox` quebra a regra inteira com erro de sintaxe (e,
+  se o arquivo já estiver instalado em `/etc/sudoers.d/` quando isso
+  acontece, o `sudo` passa a recusar aquela regra especificamente,
+  avisando do erro toda vez que qualquer `sudo` roda — sem travar o
+  `sudo` inteiro, já que a regra de grupo padrão continua valendo, mas
+  gerando bastante ruído no terminal). Antes de instalar qualquer
+  regra nova, validar num arquivo temporário primeiro:
+  `sudo visudo -cf /tmp/arquivo-de-teste` — só copiar pra
+  `/etc/sudoers.d/` depois de ver `parsed OK`/`análise OK`.
+
 ## 6. Checklist de segurança
 
 Rodar num notebook doméstico e expor parte do acesso pela internet muda
