@@ -8,21 +8,16 @@
 exigirSessao();
 
 // As secoes da pagina viram itens da barra lateral: a primeira
-// (o quadro) e a que aparece ao abrir o projeto. "Desempenho" e exclusiva
-// do Gestor — comeca escondida e ajustarPermissoesDaTela() a libera.
+// (o quadro) e a que aparece ao abrir o projeto.
 montarNavegacao([
 	{ visao: 'quadro', rotulo: 'Quadro', icone: 'quadro' },
 	{ visao: 'membros', rotulo: 'Membros', icone: 'membros' },
 	{ visao: 'linha-do-tempo', rotulo: 'Linha do tempo', icone: 'linhadotempo' },
-	{ visao: 'relatorios', rotulo: 'Relatórios', icone: 'relatorios' },
-	{ visao: 'desempenho', rotulo: 'Desempenho', icone: 'desempenho', somenteGestor: true }
+	{ visao: 'relatorios', rotulo: 'Relatórios', icone: 'relatorios' }
 ], (visao) => {
 	// ao voltar para os relatorios, busca a lista de novo (pode ter mudado)
 	if (visao === 'relatorios') {
 		carregarRelatorios().catch(erro => exibirMensagem(erro.message, 'erro'));
-	}
-	if (visao === 'desempenho') {
-		carregarDesempenho().catch(erro => exibirMensagem(erro.message, 'erro'));
 	}
 });
 
@@ -120,7 +115,6 @@ function ajustarPermissoesDaTela() {
 	document.getElementById('formulario-convite').hidden = !(souGestor() && projeto.status === 'ATIVO');
 	document.getElementById('botao-sair-do-projeto').hidden = souGestor();
 	document.getElementById('botao-novo-relatorio').hidden = !souGestor();
-	document.querySelector('.item-de-navegacao[data-visao="desempenho"]').hidden = !souGestor();
 }
 
 async function carregarTarefas() {
@@ -910,55 +904,6 @@ document.getElementById('botao-gerar-relatorio').addEventListener('click', async
 		exibirMensagem(erro.message, 'erro');
 	}
 });
-
-/* ---------- desempenho: carga de trabalho e eficiencia da equipe (Gestor) ---------- */
-/* Painel so de leitura: nada aqui e escrito pelo usuario, so agregado a
-   partir das tarefas do projeto (responsaveis, status, prazo, conclusao). */
-
-/** "2,3 dias" — nulo (sem tarefas concluidas ainda) vira travessao. */
-function formatarDias(dias) {
-	return dias === null || dias === undefined ? '—' : dias.toFixed(1).replace('.', ',') + ' dias';
-}
-
-/** "+3,0 dias adiantado" / "−1,5 dias de atraso" / "no prazo exato". */
-function formatarEficiencia(dias) {
-	if (dias === null || dias === undefined) {
-		return '<span class="texto-suave">—</span>';
-	}
-	const arredondado = Math.abs(dias).toFixed(1).replace('.', ',');
-	if (dias > 0.05) {
-		return '<span class="eficiencia-adiantada">+' + arredondado + ' dias adiantado</span>';
-	}
-	if (dias < -0.05) {
-		return '<span class="eficiencia-atrasada">−' + arredondado + ' dias de atraso</span>';
-	}
-	return 'no prazo exato';
-}
-
-async function carregarDesempenho() {
-	try {
-		const dados = await chamarApi('/projetos/' + projetoId + '/desempenho');
-
-		document.getElementById('resumo-progresso').textContent = dados.resumo.progresso + '%';
-		document.getElementById('resumo-no-prazo').textContent =
-			dados.resumo.percentualNoPrazo === null ? '—' : dados.resumo.percentualNoPrazo + '%';
-		document.getElementById('resumo-bloqueadas').textContent = dados.resumo.tarefasBloqueadas;
-
-		document.getElementById('aviso-sem-membros-desempenho').hidden = dados.porMembro.length > 0;
-		document.getElementById('corpo-da-tabela-de-desempenho').innerHTML = dados.porMembro.map(linha => `
-			<tr>
-				<td>${escaparHtml(linha.usuario.nome)}</td>
-				<td>${linha.concluidas}</td>
-				<td>${linha.emAberto}</td>
-				<td>${linha.atrasadas > 0 ? '<span class="prazo-vencido">' + linha.atrasadas + '</span>' : linha.atrasadas}</td>
-				<td>${formatarDias(linha.tempoMedioDeConclusaoEmDias)}</td>
-				<td>${formatarEficiencia(linha.eficienciaMediaEmDias)}</td>
-			</tr>
-		`).join('');
-	} catch (erro) {
-		exibirMensagem(erro.message, 'erro');
-	}
-}
 
 /* ---------- inicializacao ---------- */
 

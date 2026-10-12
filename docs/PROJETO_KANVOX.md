@@ -1,7 +1,7 @@
 # Kanvox — Documento de Projeto
 
 > Documento de contexto para desenvolvimento com Claude Code.
-> Última atualização: agosto/2026 — núcleo (RF-01 a RF-07) implementado e testado; adicionados desde julho/2026: múltiplos responsáveis e dependência entre tarefas, histórico de atividade e linha do tempo, painel de desempenho da equipe, exportação de relatório em PDF, senha forte, edição de perfil e filtro do quadro. Decisões técnicas fechadas: perfis por projeto, frontend em HTML/CSS/JS puro, JWT sem refresh token, transcrição com revisão obrigatória.
+> Última atualização: outubro/2026 — núcleo (RF-01 a RF-07) implementado e testado; adicionados desde julho/2026: múltiplos responsáveis e dependência entre tarefas, histórico de atividade e linha do tempo, exportação de relatório em PDF, senha forte, edição de perfil e filtro do quadro. O painel de desempenho da equipe (RF-08) foi retirado do escopo do TG em outubro/2026 para enxugar o artigo — código isolado em `C:\Users\LuanZ\Desktop\Kanvox - Painel de Desempenho (removido)`. Decisões técnicas fechadas: perfis por projeto, frontend em HTML/CSS/JS puro, JWT sem refresh token, transcrição com revisão obrigatória.
 
 ---
 
@@ -77,7 +77,7 @@ Os perfis são definidos **por projeto**, no vínculo entre usuário e projeto (
 
 | Perfil | Permissões |
 |---|---|
-| **Gestor** | Acesso completo: cria projetos, cria/edita o conteúdo/exclui tarefas, convida membros, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio, exportáveis em PDF), remove membros, acessa o painel de desempenho da equipe |
+| **Gestor** | Acesso completo: cria projetos, cria/edita o conteúdo/exclui tarefas, convida membros, decide quando uma tarefa está concluída, gera relatórios (com ou sem transcrição de áudio, exportáveis em PDF), remove membros |
 | **Membro** | Acessa apenas os projetos em que está inserido (após aceitar o convite); **movimenta** (via Kanban) apenas as tarefas em que é um dos responsáveis, mas **não edita os dados** delas (título, descrição, prazo, prioridade, responsáveis — isso é exclusivo do Gestor); comenta em qualquer tarefa do projeto e anexa arquivos nas atribuídas a ele; pode sair de um projeto voluntariamente |
 | **Observador** | Acesso somente leitura ao projeto e ao Kanban |
 
@@ -143,11 +143,7 @@ Independente do papel, todo usuário pode editar o próprio nome e trocar a pró
 - RF-07.2 — Gestor pode anexar arquivos em qualquer tarefa; Membro só nas tarefas atribuídas a ele — é o canal de devolutiva ("entreguei, segue o arquivo"). Limite de 10MB por arquivo, guardado no próprio banco de dados (sem serviço de armazenamento externo, mantendo o RNF-07 de custo zero). Quem enviou o anexo ou o Gestor podem excluí-lo.
 - RF-07.3 — Comentários e anexos ficam bloqueados em projetos encerrados (mesma regra do Kanban).
 
-### RF-08 — Desempenho da Equipe
-*(bloco novo — pensado após reflexão sobre o que um gerente de projetos real precisaria além do núcleo já entregue)*
-- RF-08.1 — Painel "Desempenho", exclusivo do Gestor, com uma linha por membro ativo do projeto (Observador fica de fora — nunca pode ser responsável por tarefa): tarefas concluídas, em aberto, atrasadas, tempo médio de conclusão (média de `concluidaEm - criadoEm` das tarefas concluídas) e eficiência de entrega (média de `prazo - concluidaEm`, em dias — positivo é entrega adiantada, negativo é atraso; só entram tarefas concluídas que tinham prazo definido).
-- RF-08.2 — Resumo do time no topo do painel: progresso geral do projeto, percentual de entregas feitas dentro do prazo, e quantas tarefas estão bloqueadas agora.
-- RF-08.3 — O painel é uma visão de **carga de trabalho do time para o Gestor**, deliberadamente **não** um ranking individual exposto aos membros — cada Membro não vê a linha dos colegas, só o Gestor tem acesso à tela inteira. Todos os números vêm de campos que já existem em `Tarefa` (responsáveis, status, prazo, datas) — nenhuma tabela nova, nenhum campo de estimativa de esforço ainda (ficaria como melhoria futura).
+> RF-08 (Desempenho da Equipe) foi removido do escopo do TG em outubro/2026 para enxugar o artigo — ver nota no topo deste documento. Código isolado em `C:\Users\LuanZ\Desktop\Kanvox - Painel de Desempenho (removido)`, com um README explicando como reintegrar se for retomado.
 
 ---
 
@@ -196,7 +192,7 @@ Nomes de tabelas, classes e campos em português, sem acentuação, seguindo a c
 - **Usuario** — id, nome, email, senha (hash), tokenRecuperacao (opcional), tokenExpiraEm (opcional). *Sem campo de papel global* — o papel é sempre por projeto, em MembroProjeto
 - **Projeto** — id, nome, descricao, criadoPor, status, criadoEm
 - **MembroProjeto** — projetoId, usuarioId, papelNoProjeto (gestor/membro/observador), situacao (pendente/ativo/inativo — nasce `pendente` quando é um convite, vira `ativo` quando o convidado aceita, e `inativo` quando o convite é recusado ou o membro sai/é removido; o registro nunca é excluído, preservando o histórico)
-- **Tarefa** — id, projetoId, titulo, descricao, **responsaveis** (lista de Usuario — relação muitos-para-muitos via tabela de junção `tarefa_responsavel`, RF-03.5), **dependencias** (lista de Tarefa do mesmo projeto — relação muitos-para-muitos **auto-referenciada** via tabela `tarefa_dependencia`, RF-03.8), prazo, prioridade (baixa/media/alta), status (kanban, agora com 5 valores incluindo "em revisão"), concluidaEm (preenchida quando o Gestor conclui; usada no relatório e no painel de desempenho), criadoEm, notificadoAtraso (controle interno da rotina de prazo vencido, RF-06.2)
+- **Tarefa** — id, projetoId, titulo, descricao, **responsaveis** (lista de Usuario — relação muitos-para-muitos via tabela de junção `tarefa_responsavel`, RF-03.5), **dependencias** (lista de Tarefa do mesmo projeto — relação muitos-para-muitos **auto-referenciada** via tabela `tarefa_dependencia`, RF-03.8), prazo, prioridade (baixa/media/alta), status (kanban, agora com 5 valores incluindo "em revisão"), concluidaEm (preenchida quando o Gestor conclui; usada no relatório), criadoEm, notificadoAtraso (controle interno da rotina de prazo vencido, RF-06.2)
 - **HistoricoTarefa** — id, tarefaId, autorId, descricao (texto livre gerado pelo sistema, ex. "Moveu de 'A Fazer' para 'Em Andamento'."), criadoEm (RF-03.9). Só é escrito pelo `TarefaServico`, nunca pelo usuário diretamente.
 - **Comentario** — id, tarefaId, autorId, texto, criadoEm (RF-07.1)
 - **Anexo** — id, tarefaId, nome, tipo, tamanho, dados (bytes do arquivo, até 10MB), enviadoPorId, criadoEm (RF-07.2)
@@ -230,7 +226,6 @@ kanvox/
 │   │   │   │   ├── AnexoControlador.java          # RF-07.2
 │   │   │   │   ├── NotificacaoControlador.java
 │   │   │   │   ├── RelatorioControlador.java      # relatorio + transcricao + PDF (RF-04/05)
-│   │   │   │   ├── DesempenhoControlador.java     # painel do Gestor (RF-08)
 │   │   │   │   └── TratadorDeErros.java           # converte excecoes em respostas JSON (RNF-05)
 │   │   │   │
 │   │   │   ├── servico/              # Regras de negócio
@@ -242,7 +237,6 @@ kanvox/
 │   │   │   │   ├── AnexoServico.java
 │   │   │   │   ├── NotificacaoServico.java
 │   │   │   │   ├── RelatorioServico.java          # tambem monta o PDF (OpenPDF)
-│   │   │   │   ├── DesempenhoServico.java         # RF-08
 │   │   │   │   ├── EmailServico.java              # envio do e-mail de recuperacao (RF-01.3)
 │   │   │   │   ├── TokenServico.java              # gera/valida o JWT
 │   │   │   │   ├── RegraDeNegocioExcecao.java, PermissaoNegadaExcecao.java  # excecoes (400/403)
