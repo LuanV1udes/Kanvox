@@ -11,7 +11,14 @@ import br.edu.fatec.kanvox.modelo.Usuario;
 /** Acesso ao banco para a entidade Usuario. */
 public interface UsuarioRepositorio extends JpaRepository<Usuario, Long> {
 
-	@Query("select u from Usuario u where u.email = :email")
+	/**
+	 * Busca ignorando maiusculas/minusculas: o e-mail e o identificador de login,
+	 * e ninguem lembra se digitou "Fulano@Gmail.com" ou "fulano@gmail.com" no
+	 * cadastro. Sem o lower() dos dois lados, quem digitasse com outra caixa
+	 * simplesmente nao era encontrado — e na recuperacao de senha (RF-01.3) isso
+	 * falhava calado, porque a resposta ao usuario e sempre generica.
+	 */
+	@Query("select u from Usuario u where lower(u.email) = lower(:email)")
 	Optional<Usuario> buscarPorEmail(@Param("email") String email);
 
 	/** Usado na redefinicao de senha (RF-01.3) para localizar o dono do token recebido por e-mail. */

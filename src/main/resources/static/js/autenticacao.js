@@ -52,6 +52,13 @@ document.getElementById('link-voltar-login').addEventListener('click', (evento) 
 
 formularioEsqueciSenha.addEventListener('submit', async (evento) => {
 	evento.preventDefault();
+	// o envio do e-mail leva alguns segundos (o servidor conversa com o SMTP antes
+	// de responder), entao o botao precisa avisar que esta trabalhando — sem isso a
+	// tela fica parada e o usuario acha que travou e clica de novo
+	const botao = formularioEsqueciSenha.querySelector('button[type="submit"]');
+	const textoOriginal = botao.textContent;
+	botao.disabled = true;
+	botao.textContent = 'Enviando...';
 	try {
 		const resposta = await chamarApi('/autenticacao/esqueci-senha', {
 			method: 'POST',
@@ -64,6 +71,9 @@ formularioEsqueciSenha.addEventListener('submit', async (evento) => {
 		exibirMensagem(resposta.mensagem, 'sucesso');
 	} catch (erro) {
 		mostrarErro(erro.message);
+	} finally {
+		botao.disabled = false;
+		botao.textContent = textoOriginal;
 	}
 });
 

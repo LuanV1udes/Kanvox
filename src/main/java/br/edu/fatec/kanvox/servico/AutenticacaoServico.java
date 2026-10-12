@@ -3,6 +3,8 @@ package br.edu.fatec.kanvox.servico;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +14,8 @@ import br.edu.fatec.kanvox.repositorio.UsuarioRepositorio;
 /** Regras de negocio de cadastro, login e recuperacao de senha (RF-01). */
 @Service
 public class AutenticacaoServico {
+
+	private static final Logger registrador = LoggerFactory.getLogger(AutenticacaoServico.class);
 
 	/** Validade do link de recuperacao de senha (RF-01.3). */
 	private static final long VALIDADE_DO_TOKEN_EM_HORAS = 1;
@@ -52,7 +56,9 @@ public class AutenticacaoServico {
 
 		Usuario novoUsuario = new Usuario();
 		novoUsuario.setNome(dadosRecebidos.getNome());
-		novoUsuario.setEmail(dadosRecebidos.getEmail());
+		// guardado sempre em minusculas e sem espacos nas pontas, para o e-mail
+		// ficar identico ao que o usuario digitar depois no login ou na recuperacao
+		novoUsuario.setEmail(normalizarEmail(dadosRecebidos.getEmail()));
 		novoUsuario.setSenha(codificadorDeSenha.encode(dadosRecebidos.getSenha()));
 		Usuario usuarioSalvo = usuarioRepositorio.save(novoUsuario);
 		emailServico.enviarBoasVindas(usuarioSalvo.getEmail(), usuarioSalvo.getNome());
@@ -61,7 +67,7 @@ public class AutenticacaoServico {
 
 	/** Confere e-mail e senha e devolve um token JWT (RF-01.1). */
 	public String autenticar(String email, String senha) {
-		Usuario usuario = usuarioRepositorio.buscarPorEmail(email == null ? "" : email)
+		Usuario usuario = usuarioRepositorio.buscarPorEmail(normalizarEmail(email))
 				.orElseThrow(() -> new RegraDeNegocioExcecao("E-mail ou senha invalidos."));
 		if (senha == null || !codificadorDeSenha.matches(senha, usuario.getSenha())) {
 			throw new RegraDeNegocioExcecao("E-mail ou senha invalidos.");
@@ -76,12 +82,20 @@ public class AutenticacaoServico {
 	 * e-mails ao acaso, quais contas estao cadastradas na plataforma.
 	 */
 	public void solicitarRecuperacaoDeSenha(String email) {
-		usuarioRepositorio.buscarPorEmail(email == null ? "" : email).ifPresent(usuario -> {
+		String emailProcurado = normalizarEmail(email);
+		usuarioRepositorio.buscarPorEmail(emailProcurado).ifPresentOrElse(usuario -> {
 			usuario.setTokenRecuperacao(UUID.randomUUID().toString());
 			usuario.setTokenExpiraEm(LocalDateTime.now().plusHours(VALIDADE_DO_TOKEN_EM_HORAS));
 			usuarioRepositorio.save(usuario);
+			registrador.info("Recuperacao de senha solicitada para {} - token gerado, enviando e-mail.", emailProcurado);
 			emailServico.enviarLinkDeRecuperacao(usuario.getEmail(), usuario.getNome(), usuario.getTokenRecuperacao());
-		});
+		},
+			// O usuario continua recebendo a mesma resposta generica (RNF-02), mas o
+			// servidor registra que nao havia conta com esse e-mail. Sem esta linha a
+			// falha era invisivel: quem digitasse um e-mail que nao existe via
+			// "enviamos um link" e nunca recebia nada, e nem o log mostrava o motivo.
+			() -> registrador.info("Recuperacao de senha solicitada para {}, mas nao existe conta com esse e-mail.",
+					emailProcurado));
 	}
 
 	/**
@@ -145,6 +159,15 @@ public class AutenticacaoServico {
 
 	private boolean estaVazio(String valor) {
 		return valor == null || valor.isBlank();
+	}
+
+	/**
+	 * Deixa o e-mail sempre no mesmo formato antes de gravar ou procurar no banco:
+	 * sem espacos nas pontas (comum quando o usuario cola o endereco) e em
+	 * minusculas (e-mail nao diferencia maiuscula de minuscula na pratica).
+	 */
+	private String normalizarEmail(String email) {
+		return email == null ? "" : email.trim().toLowerCase();
 	}
 
 	/**

@@ -1,5 +1,6 @@
 package br.edu.fatec.kanvox.controlador;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -314,6 +315,41 @@ class AutenticacaoControladorTestes {
 				.content("{\"email\":\"nao-cadastrado@teste.com\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.mensagem").value("Se este e-mail estiver cadastrado, enviamos um link de redefinição."));
+	}
+
+	@Test
+	void esqueciSenhaEncontraAContaMesmoComOEmailDigitadoEmOutraCaixa() throws Exception {
+		// o e-mail e guardado em minusculas no cadastro e procurado com lower() no
+		// banco: quem digitar com maiusculas (ou colar com espaco) na tela de
+		// recuperacao precisa achar a mesma conta, senao a falha e invisivel —
+		// a resposta e generica e o usuario espera um e-mail que nunca chega
+		mockMvc.perform(post("/api/autenticacao/cadastro")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"nome\":\"Aluno Caixa Alta\",\"email\":\"Caixa.Alta@Teste.com\",\"senha\":\"Senha123!\"}"))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(post("/api/autenticacao/esqueci-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"  CAIXA.ALTA@teste.COM  \"}"))
+				.andExpect(status().isOk());
+
+		// se o token foi gerado, a conta foi encontrada apesar da caixa diferente
+		Usuario usuario = usuarioRepositorio.buscarPorEmail("caixa.alta@teste.com").orElseThrow();
+		assertNotNull(usuario.getTokenRecuperacao(), "deveria ter gerado o token de recuperacao");
+
+		// e o link enviado por e-mail funciona normalmente
+		String token = extrairTokenDoUltimoEmailPara("caixa.alta@teste.com");
+		mockMvc.perform(post("/api/autenticacao/redefinir-senha")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"token\":\"" + token + "\",\"novaSenha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk());
+
+		// o login tambem aceita o e-mail em qualquer caixa
+		mockMvc.perform(post("/api/autenticacao/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\":\"Caixa.Alta@TESTE.com\",\"senha\":\"senhaNova123\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.token").isNotEmpty());
 	}
 
 	@Test
