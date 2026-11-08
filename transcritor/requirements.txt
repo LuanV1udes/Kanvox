@@ -1,0 +1,7 @@
+faster-whisper
+# av 19+ removeu um argumento que o faster-whisper 1.2.1 ainda usa
+# ao decodificar o audio (TypeError: unexpected keyword 'metadata_errors')
+av<19
+fastapi
+uvicorn
+python-multipart

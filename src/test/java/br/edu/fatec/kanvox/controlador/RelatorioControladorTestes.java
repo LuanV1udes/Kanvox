@@ -33,7 +33,7 @@ import br.edu.fatec.kanvox.servico.transcricao.ServicoTranscricao;
  * Testes dos relatorios (RF-04) e da transcricao (RF-05) — modulo com
  * cobertura obrigatoria segundo o documento do projeto.
  * A transcricao usa uma implementacao FALSA (abaixo), para os testes nao
- * dependerem de internet nem da API da Groq — e exatamente para permitir
+ * dependerem do servidor de transcricao estar no ar — e exatamente para permitir
  * essa troca que existe a interface ServicoTranscricao (RNF-04).
  */
 @SpringBootTest

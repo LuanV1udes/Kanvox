@@ -64,7 +64,7 @@ copy .env.example .env
 |---|---|---|
 | `BANCO_URL`, `BANCO_USUARIO`, `BANCO_SENHA` | Não | Só se usar um banco diferente do padrão `kanvox`/`kanvox` |
 | `CHAVE_JWT` | Não em dev, sim em produção | Chave de assinatura dos tokens JWT |
-| `GROQ_API_KEY` | Só para transcrição de áudio | Chave gratuita gerada em [console.groq.com](https://console.groq.com) |
+| `TRANSCRICAO_URL`, `TRANSCRICAO_MODELO`, `TRANSCRICAO_CHAVE_API` | Não | Só para usar a API da Groq no lugar do [transcritor local](transcritor/README.md) (que é o padrão e não precisa de nada aqui) |
 | `SMTP_USUARIO`, `SMTP_SENHA` | Só para envio real de e-mail | Conta e senha de app do Gmail |
 
 ## Como rodar a aplicação
@@ -169,6 +169,6 @@ Os testes usam o banco em memória H2 — **não precisam de PostgreSQL instalad
 | POST | `/api/projetos/{id}/relatorios` | Gera um relatório do estado atual do projeto — corpo opcional: `{ "transcricaoAudio": "texto já revisado" }` |
 | GET | `/api/projetos/{id}/relatorios` | Lista os relatórios do projeto (qualquer membro pode ler) |
 
-**Configuração necessária:** defina a variável de ambiente `GROQ_API_KEY` com uma chave gratuita gerada em [console.groq.com](https://console.groq.com). Sem ela, a transcrição responde com um erro amigável — o resto do sistema continua funcionando normalmente (RNF-03).
+**Configuração necessária:** a transcrição roda **localmente**, sem API externa — suba o [transcritor](transcritor/README.md) (um servidor Python com o Whisper, na porta 8001) junto com o Kanvox. Sem ele rodando, a transcrição responde com um erro amigável — o resto do sistema continua funcionando normalmente (RNF-03).
 
 **Fluxo com revisão humana (RF-05.5):** o Gestor grava o áudio → chama `/transcricoes` e recebe o texto → revisa/edita na tela → chama `/relatorios` enviando o texto já revisado. A transcrição nunca é salva automaticamente.

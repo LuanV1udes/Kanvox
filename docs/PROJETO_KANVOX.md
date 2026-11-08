@@ -52,14 +52,14 @@ A stack foi escolhida priorizando tecnologias consolidadas e de baixo acoplament
 | Banco de dados | **PostgreSQL** | Local em desenvolvimento; administrado via **pgAdmin** |
 | ORM | Spring Data JPA (Hibernate) | Mapeamento objeto-relacional padrão do ecossistema Spring |
 | Autenticação | Spring Security + JWT | Token único com expiração (sem refresh token no MVP); RBAC validado na camada de serviço |
-| Transcrição de áudio | Whisper via API Groq | Chamada HTTP simples (RestTemplate/WebClient), gratuita em dev e produção |
+| Transcrição de áudio | Whisper local (faster-whisper, em CPU), servido por um serviço Python na própria máquina | Sem dependência de API externa nem de internet; o Spring chama por HTTP (RestTemplate) no formato da API da OpenAI. Ver `transcritor/README.md` |
 | Atualização do Kanban | Polling automático (frontend consulta o backend a cada poucos segundos) | Ver nota abaixo |
 
 **Nota sobre a atualização do Kanban (RF-03.6):** para manter a stack simples e evitar a complexidade de um servidor WebSocket dedicado, o MVP usa **polling automático** — o frontend busca o estado atualizado das tarefas periodicamente (ex. a cada 5 segundos). Isso atende ao requisito de visualização atualizada sem exigir infraestrutura de tempo real. Uma implementação com WebSocket (Spring WebSocket/STOMP) pode ser registrada como melhoria futura, caso sobre tempo no cronograma.
 
-**Nota sobre o frontend:** a escolha por HTML/CSS/JS puro é deliberada. O Kanban com drag-and-drop, o polling e a gravação de áudio são implementados com recursos nativos do navegador (`fetch`, MediaRecorder) mais uma única biblioteca de arquivo único (SortableJS, incluída como arquivo local em `static/`, sem CDN nem gerenciador de pacotes). Não há etapa de build nem transpilação — o frontend é aberto direto pelo navegador, servido pelo Spring Boot, o que mantém o projeto simples de rodar e de explicar linha a linha na banca. O áudio gravado pelo MediaRecorder (formato WebM/Opus) é aceito diretamente pela API da Groq, sem necessidade de conversão.
+**Nota sobre o frontend:** a escolha por HTML/CSS/JS puro é deliberada. O Kanban com drag-and-drop, o polling e a gravação de áudio são implementados com recursos nativos do navegador (`fetch`, MediaRecorder) mais uma única biblioteca de arquivo único (SortableJS, incluída como arquivo local em `static/`, sem CDN nem gerenciador de pacotes). Não há etapa de build nem transpilação — o frontend é aberto direto pelo navegador, servido pelo Spring Boot, o que mantém o projeto simples de rodar e de explicar linha a linha na banca. O áudio gravado pelo MediaRecorder (formato WebM/Opus) é aceito diretamente pelo transcritor (a biblioteca decodifica o WebM sozinha), sem necessidade de conversão nem de ffmpeg instalado.
 
-**Nota sobre vendor lock-in:** a chamada ao serviço de transcrição deve ficar isolada atrás de uma interface no backend — ex. uma interface `ServicoTranscricao` com um método `transcrever(byte[] audio): String`, implementada por uma classe `ServicoTranscricaoGroqWhisper`. Isso permite trocar de provedor de IA no futuro sem alterar o restante do sistema.
+**Nota sobre vendor lock-in:** a chamada ao serviço de transcrição deve ficar isolada atrás de uma interface no backend — ex. uma interface `ServicoTranscricao` com um método `transcrever(byte[] audio): String`, implementada por uma classe `ServicoTranscricaoWhisper`. Isso permite trocar de provedor de IA sem alterar o restante do sistema — e foi o que aconteceu: a primeira versão usava a API da Groq (nuvem) e passou a usar o transcritor local, mudando só a URL de configuração, já que os dois falam o mesmo formato HTTP. Voltar para a Groq é possível pelas variáveis `TRANSCRICAO_URL`, `TRANSCRICAO_MODELO` e `TRANSCRICAO_CHAVE_API`.
 
 **Nota sobre contingência:** se o banco de dados ou o serviço de transcrição ficarem indisponíveis, o sistema deve degradar graciosamente — CRUD e Kanban continuam funcionando normalmente (não dependem da IA), e a funcionalidade de transcrição deve falhar de forma isolada, avisando o usuário sem quebrar o restante da aplicação.
 
@@ -242,7 +242,7 @@ kanvox/
 │   │   │   │   ├── RegraDeNegocioExcecao.java, PermissaoNegadaExcecao.java  # excecoes (400/403)
 │   │   │   │   └── transcricao/
 │   │   │   │       ├── ServicoTranscricao.java            # interface (abstração)
-│   │   │   │       └── ServicoTranscricaoGroqWhisper.java  # implementação atual
+│   │   │   │       └── ServicoTranscricaoWhisper.java      # implementação atual
 │   │   │   │
 │   │   │   ├── repositorio/          # Acesso ao banco (Spring Data JPA)
 │   │   │   │   ├── UsuarioRepositorio.java

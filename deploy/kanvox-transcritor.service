@@ -1,0 +1,39 @@
+# ============================================================
+# kanvox-transcritor.service — servico systemd do transcritor
+# local de audio (Whisper), que roda na mesma maquina do Kanvox
+# e dispensa qualquer API externa (RF-05, RNF-04).
+#
+# Pre-requisitos (ver transcritor/README.md): pasta transcritor/
+# copiada para /opt/kanvox/transcritor, com o ambiente virtual
+# (.venv) criado e o modelo ja baixado uma vez.
+#
+# Instalacao (como root, no servidor):
+#   cp kanvox-transcritor.service /etc/systemd/system/kanvox-transcritor.service
+#   systemctl daemon-reload
+#   systemctl enable --now kanvox-transcritor
+# ============================================================
+
+[Unit]
+Description=Kanvox - transcritor local de audio (Whisper)
+Before=kanvox.service
+
+[Service]
+Type=simple
+User=kanvox
+WorkingDirectory=/opt/kanvox/transcritor
+# Escuta so em 127.0.0.1: o transcritor nao tem autenticacao, quem fala
+# com ele e apenas o Kanvox, na mesma maquina
+ExecStart=/opt/kanvox/transcritor/.venv/bin/uvicorn servidor:app --host 127.0.0.1 --port 8001
+# O usuario "kanvox" nao tem home, entao o modelo fica numa pasta do projeto
+Environment=HF_HOME=/opt/kanvox/transcritor/modelos
+# Depois do primeiro download, nunca mais consulta a internet
+Environment=HF_HUB_OFFLINE=1
+# Ajuste ao numero de nucleos FISICOS do servidor (padrao: metade dos logicos)
+#Environment=WHISPER_THREADS=4
+# Troque por "base" se o servidor for muito fraco, ou "large-v3-turbo" se tiver GPU/CPU forte
+#Environment=WHISPER_MODELO=small
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

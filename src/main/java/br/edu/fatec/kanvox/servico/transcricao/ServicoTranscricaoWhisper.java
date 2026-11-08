@@ -19,21 +19,24 @@ import org.springframework.web.client.RestTemplate;
 import br.edu.fatec.kanvox.servico.RegraDeNegocioExcecao;
 
 /**
- * Implementacao atual do servico de transcricao: modelo Whisper
- * hospedado na API da Groq (gratuita em escala academica, RNF-07).
- * A chave da API vem da variavel de ambiente GROQ_API_KEY (RNF-02).
+ * Implementacao atual do servico de transcricao: modelo Whisper acessado
+ * por HTTP, no formato da API da OpenAI (POST .../audio/transcriptions).
+ * Por padrao aponta para o transcritor local (pasta transcritor/), que roda
+ * na mesma maquina do servidor e nao depende de internet. Como o formato e
+ * o mesmo, tambem funciona com a API da Groq — basta trocar a URL, o modelo
+ * e informar a chave (variavel de ambiente TRANSCRICAO_CHAVE_API, RNF-02).
  */
 @Service
-public class ServicoTranscricaoGroqWhisper implements ServicoTranscricao {
+public class ServicoTranscricaoWhisper implements ServicoTranscricao {
 
-	private static final Logger registrador = LoggerFactory.getLogger(ServicoTranscricaoGroqWhisper.class);
+	private static final Logger registrador = LoggerFactory.getLogger(ServicoTranscricaoWhisper.class);
 
 	private final RestTemplate restTemplate;
 	private final String chaveApi;
 	private final String url;
 	private final String modelo;
 
-	public ServicoTranscricaoGroqWhisper(
+	public ServicoTranscricaoWhisper(
 			@Value("${kanvox.transcricao.chave-api}") String chaveApi,
 			@Value("${kanvox.transcricao.url}") String url,
 			@Value("${kanvox.transcricao.modelo}") String modelo) {
@@ -50,15 +53,13 @@ public class ServicoTranscricaoGroqWhisper implements ServicoTranscricao {
 
 	@Override
 	public String transcrever(byte[] audio, String nomeDoArquivo) {
-		if (chaveApi == null || chaveApi.isBlank()) {
-			throw new RegraDeNegocioExcecao(
-					"O servico de transcricao nao esta configurado (defina a variavel de ambiente GROQ_API_KEY).");
-		}
-
 		try {
 			HttpHeaders cabecalhos = new HttpHeaders();
 			cabecalhos.setContentType(MediaType.MULTIPART_FORM_DATA);
-			cabecalhos.setBearerAuth(chaveApi);
+			// o transcritor local nao pede chave; so provedores externos exigem
+			if (chaveApi != null && !chaveApi.isBlank()) {
+				cabecalhos.setBearerAuth(chaveApi);
+			}
 
 			// ByteArrayResource com nome de arquivo: e assim que a API identifica o formato do audio
 			ByteArrayResource arquivoDeAudio = new ByteArrayResource(audio) {
@@ -85,7 +86,7 @@ public class ServicoTranscricaoGroqWhisper implements ServicoTranscricao {
 		} catch (RestClientException e) {
 			// RNF-03: o detalhe tecnico vai para o log; o usuario recebe um aviso
 			// amigavel e pode gerar o relatorio sem a parte narrada (RF-05.4)
-			registrador.error("Falha ao chamar o servico de transcricao (Groq/Whisper)", e);
+			registrador.error("Falha ao chamar o servico de transcricao (Whisper)", e);
 			throw new RegraDeNegocioExcecao(
 					"Nao foi possivel transcrever o audio agora. Tente novamente ou gere o relatorio sem a narracao.");
 		}

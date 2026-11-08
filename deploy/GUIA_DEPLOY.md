@@ -150,7 +150,6 @@ BANCO_URL=jdbc:postgresql://localhost:5432/kanvox
 BANCO_USUARIO=kanvox
 BANCO_SENHA=ESCOLHA_UMA_SENHA_FORTE
 CHAVE_JWT=GERE_UMA_CHAVE_ALEATORIA_LONGA_AQUI
-GROQ_API_KEY=sua-chave-da-groq
 SMTP_USUARIO=seuemail@gmail.com
 SMTP_SENHA=sua-senha-de-app-do-gmail
 KANVOX_URL_BASE=https://seudominio.com
@@ -168,6 +167,46 @@ Depois:
 sudo chown kanvox:kanvox /opt/kanvox/.env
 sudo chmod 600 /opt/kanvox/.env
 ```
+
+## Etapa 9b — Instalar o transcritor local (Whisper)
+
+A transcrição de áudio (RF-05) roda na própria máquina, sem API externa.
+É um serviço Python separado, na pasta `transcritor/` do repositório
+(detalhes em [transcritor/README.md](../transcritor/README.md)). Se você
+não precisa da narração por voz, pode pular esta etapa — o resto do
+Kanvox funciona normalmente, só a transcrição avisa que está indisponível.
+
+Envie a pasta `transcritor/` (sem `.venv`) para `/opt/kanvox/transcritor`
+(via `scp`, igual ao JAR) e, no servidor:
+
+```bash
+sudo apt install -y python3-venv
+sudo chown -R kanvox:kanvox /opt/kanvox/transcritor
+sudo -u kanvox python3 -m venv /opt/kanvox/transcritor/.venv
+sudo -u kanvox /opt/kanvox/transcritor/.venv/bin/pip install -r /opt/kanvox/transcritor/requirements.txt
+```
+
+Baixe o modelo **uma vez** (precisa de internet só nesta etapa, ~470 MB):
+
+```bash
+sudo -u kanvox HF_HOME=/opt/kanvox/transcritor/modelos /opt/kanvox/transcritor/.venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')"
+```
+
+Depois instale o serviço (`deploy/kanvox-transcritor.service`, mesmo
+processo do `kanvox.service`):
+
+```bash
+sudo mv /tmp/kanvox-transcritor.service /etc/systemd/system/kanvox-transcritor.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now kanvox-transcritor
+curl http://127.0.0.1:8001/saude
+```
+
+A resposta deve ser `{"status":"ok","modelo":"small"}`. O Kanvox já
+aponta para `http://127.0.0.1:8001` por padrão — não precisa de nada no
+`.env`. Ajuste `WHISPER_THREADS` no `.service` para o número de núcleos
+físicos do servidor e meça o tempo de um áudio de 1 minuto: o requisito
+é até 15 segundos (RNF-06.1).
 
 ## Etapa 10 — Instalar o serviço do Kanvox
 
